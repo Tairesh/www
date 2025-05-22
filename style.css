@@ -1,0 +1,90 @@
+:root {
+    --accent: #009900;
+    --accent-bg: #e6f4e6;
+    --bg: #fdfdfd;
+    --border: #52674d;
+    --header-bg: #f0f0f0;
+    --code: #009900;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --accent: #90ee90;
+        --accent-bg: #283b28;
+        --bg: #1e1e1e;
+        --header-bg: #181818;
+        --code: #90ee90;
+    }
+}
+
+body {
+    grid-template-columns: 1fr min(90rem, 90%) 1fr;
+    font-size: 1.2em;
+}
+
+body > header {
+    background-color: var(--header-bg);
+    padding: 0 1rem;
+    border: 1px solid var(--border);
+    border-top: none;
+    grid-column: 2;
+}
+
+body > header > a {
+    float: left;
+    text-decoration: none;
+}
+
+body > header > a > h1 {
+    font-family: var(--mono-font), monospace;
+    font-size: 1.2em;
+    line-height: 2;
+    margin: 1rem;
+}
+
+body > header > a > h1 > .path {
+    color: var(--text-light);
+}
+
+body > header > a:hover > h1 .path {
+    color: var(--accent);
+}
+
+.prompt-symbol {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+body > header > nav ul {
+    float: right;
+    font-size: 1.2em;
+}
+
+.notice {
+    border-left-width: 5px;
+    border-left-style: solid;
+    border-left-color: var(--accent);
+}
+
+.notice strong {
+    color: var(--accent);
+}
+
+article {
+    padding-bottom: 0;
+}
+
+article h2 {
+    margin-top: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3em;
+    font-family: var(--mono-font), monospace;
+}
+
+body > footer {
+    text-align: center;
+    color: var(--text-light);
+    padding: 0;
+    margin: 0;
+    border: none;
+}
