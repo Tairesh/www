@@ -60,10 +60,15 @@ body > header > nav ul {
     font-size: 1.2em;
 }
 
+body > main {
+	padding: 0;
+}
+
 .notice {
     border-left-width: 5px;
     border-left-style: solid;
     border-left-color: var(--accent);
+    margin: 1rem 0;
 }
 
 .notice strong {
@@ -71,7 +76,7 @@ body > header > nav ul {
 }
 
 article {
-    padding-bottom: 0;
+    padding: 0 1rem;
 }
 
 article h2 {
@@ -79,6 +84,11 @@ article h2 {
     border-bottom: 1px solid var(--border);
     padding-bottom: 0.3em;
     font-family: var(--mono-font), monospace;
+    font-size: 1.5rem;
+}
+
+article p {
+    margin: 1rem 0;
 }
 
 body > footer {
