@@ -5,6 +5,7 @@
     --border: #52674d;
     --header-bg: #f0f0f0;
     --code: #009900;
+    --marked: #009900;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -14,12 +15,14 @@
         --bg: #1e1e1e;
         --header-bg: #181818;
         --code: #90ee90;
+        --marked: #90ee90;
     }
 }
 
 body {
     grid-template-columns: 1fr min(90rem, 90%) 1fr;
     font-size: 1.2em;
+    line-height: 2.1rem;
 }
 
 body > header {
@@ -47,39 +50,13 @@ body > header > h1 > .path {
 }
 
 body > header > .middle {
-    font-family: var(--mono-font), monospace;
+    font-style: italic;
     flex: 1;
     margin: 0 2rem;
 }
 
 body > header > nav ul {
     font-size: 1.2em;
-}
-
-@media only screen and (width <= 1000px) {
-    body > header {
-        display: block;
-        text-align: center;
-    }
-
-    body > header > h1 {
-        display: block;
-        width: 100%;
-        margin-top: 0.5rem;
-        line-height: 2;
-    }
-
-    body > header > nav {
-        display: block;
-        width: 100%;
-        padding: 0;
-    }
-}
-
-@media only screen and (720px <= width <= 1000px) {
-    body > header > .middle {
-        margin-bottom: 0.5rem;
-    }
 }
 
 body > main {
@@ -91,8 +68,8 @@ section {
     padding: 0;
 }
 
-section > h2, section > h3 {
-    margin-bottom: 0;
+section h1, section h2, section h3, section h4 {
+    margin: 0;
 }
 
 article {
@@ -136,18 +113,77 @@ body > footer {
     color: var(--accent);
 }
 
-ul.contact-list {
+aside.contact-list {
+    text-align: center;
+    width: max-content;
+    max-width: 40%;
+}
+
+aside.contact-list > ul {
     list-style: none;
-    padding-inline-start: 1rem;
+    padding-inline-start: 0;
+}
+
+mark {
+    text-wrap: nowrap;
+}
+
+@media only screen and (width <= 1000px) {
+    body > header {
+        display: block;
+        text-align: center;
+    }
+
+    body > header > h1 {
+        display: block;
+        width: 100%;
+        margin-top: 0.5rem;
+        margin-left: 0;
+        line-height: 2;
+    }
+
+    body > header > nav {
+        display: block;
+        width: 100%;
+        padding: 0;
+    }
+
+    aside.contact-list {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media only screen and (720px <= width <= 1000px) {
+    body > header > .middle {
+        margin-bottom: 0.5rem;
+    }
 }
 
 @media print {
-    body, h1, h2, h3, p {
+    body, p {
         font-size: 1em;
     }
 
     body > header {
         display: none;
+    }
+
+    .contact-list .icon {
+        display: none;
+    }
+
+    section h1 {
+        margin-top: 1em;
+        font-size: 2rem;
+    }
+
+    section h2 {
+        font-size: 1.5rem;
+    }
+
+    section h3 {
+        font-size: 1.1rem;
     }
 
     article {
