@@ -28,44 +28,41 @@ body > header {
     border: 1px solid var(--border);
     border-top: none;
     grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-body > header > a {
-    float: left;
-    text-decoration: none;
-}
-
-body > header > a > h1 {
+body > header > h1 {
     font-family: var(--mono-font), monospace;
     font-size: 1em;
     line-height: 3.7;
     margin: 0;
 }
 
-body > header > a > h1 > .path {
+body > header > h1 > .path {
     color: var(--text-light);
 }
 
-body > header > a:hover > h1 .path {
-    color: var(--accent);
-}
-
-body > header > nav {
-    float: right;
+body > header > .middle {
+    flex: 1;
+    margin: 0 2rem;
 }
 
 body > header > nav ul {
     font-size: 1.2em;
 }
 
-@media only screen and (width <= 720px) {
-    body > header > a {
+@media only screen and (width <= 1000px) {
+    body > header {
+        display: block;
+        text-align: center;
+    }
+
+    body > header > h1 {
         display: block;
         width: 100%;
         margin-top: 0.5rem;
-    }
-
-    body > header > a > h1 {
         line-height: 2;
     }
 
@@ -73,6 +70,12 @@ body > header > nav ul {
         display: block;
         width: 100%;
         padding: 0;
+    }
+}
+
+@media only screen and (720px <= width <= 1000px) {
+    body > header > .middle {
+        margin-bottom: 0.5rem;
     }
 }
 
