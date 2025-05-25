@@ -22,6 +22,8 @@ jobs:
         uses: actions/setup-node@v4
 
       - name: Deploy to xmit
-        run: npx @xmit.co/xmit tairesh.xmit.dev@${{ secrets.XMIT_TEAM }}
+        run: |
+          cd public
+          npx @xmit.co/xmit tairesh.xmit.dev@${{ secrets.XMIT_TEAM }}
         env:
           XMIT_KEY: ${{ secrets.XMIT_TOKEN }}
