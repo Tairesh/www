@@ -47,6 +47,7 @@ body > header > h1 > .path {
 }
 
 body > header > .middle {
+    font-family: var(--mono-font), monospace;
     flex: 1;
     margin: 0 2rem;
 }
