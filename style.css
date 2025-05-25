@@ -24,7 +24,7 @@ body {
 
 body > header {
     background-color: var(--header-bg);
-    padding: 0 1rem;
+    padding: 0 0.5rem;
     border: 1px solid var(--border);
     border-top: none;
     grid-column: 2;
@@ -37,9 +37,9 @@ body > header > a {
 
 body > header > a > h1 {
     font-family: var(--mono-font), monospace;
-    font-size: 1.2em;
-    line-height: 2;
-    margin: 1rem;
+    font-size: 1em;
+    line-height: 3.7;
+    margin: 0;
 }
 
 body > header > a > h1 > .path {
@@ -50,29 +50,34 @@ body > header > a:hover > h1 .path {
     color: var(--accent);
 }
 
-.prompt-symbol {
-    color: var(--accent);
-    font-weight: bold;
+body > header > nav {
+    float: right;
 }
 
 body > header > nav ul {
-    float: right;
     font-size: 1.2em;
 }
 
+@media only screen and (width <= 720px) {
+    body > header > a {
+        display: block;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    body > header > a > h1 {
+        line-height: 2;
+    }
+
+    body > header > nav {
+        display: block;
+        width: 100%;
+        padding: 0;
+    }
+}
+
 body > main {
-	padding: 0;
-}
-
-.notice {
-    border-left-width: 5px;
-    border-left-style: solid;
-    border-left-color: var(--accent);
-    margin: 1rem 0;
-}
-
-.notice strong {
-    color: var(--accent);
+    padding: 0;
 }
 
 article {
@@ -97,4 +102,14 @@ body > footer {
     padding: 0;
     margin: 0;
     border: none;
+}
+
+.accent {
+    color: var(--accent);
+}
+
+.notice {
+    border-color: var(--accent);
+    margin: 1rem 0;
+    text-align: center;
 }
