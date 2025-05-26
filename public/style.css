@@ -1,4 +1,5 @@
 :root {
+    --sans-font: -apple-system,BlinkMacSystemFont,"Noto Sans","Segoe UI",Arial,Helvetica,"Helvetica Neue",sans-serif;
     --accent: #009900;
     --accent-bg: #e6f4e6;
     --bg: #fdfdfd;
@@ -117,6 +118,10 @@ aside.contact-list {
     text-align: center;
     width: max-content;
     max-width: 40%;
+}
+
+aside.contact-list > h4 {
+    margin-top: 1rem;
 }
 
 aside.contact-list > ul {
