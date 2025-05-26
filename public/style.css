@@ -44,6 +44,7 @@ body > header > h1 {
     line-height: 3.7;
     margin: 0;
     margin-left: 0.5rem;
+    cursor: default;
 }
 
 body > header > h1 > .path {
@@ -51,9 +52,14 @@ body > header > h1 > .path {
 }
 
 body > header > .middle {
-    font-style: italic;
     flex: 1;
     margin: 0 2rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+}
+
+body > header > .middle code {
+    text-wrap: nowrap;
 }
 
 body > header > nav ul {
