@@ -47,6 +47,12 @@ body > header > h1 {
     cursor: default;
 }
 
+body > header > h1 > img {
+    width: 1.3em;
+    opacity: 1;
+    vertical-align: text-bottom;
+}
+
 body > header > h1 > .path {
     color: var(--text-light);
 }
