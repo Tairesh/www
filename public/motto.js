@@ -55,9 +55,10 @@
 		"If you're reading this, you've been in a coma for almost 20 years now. We're trying a new technique. We don't know where this message will end up in your dream, but we hope it works. Please wake up, we miss you."
 	];
 
-	// 420
-	if ((new Date()).getDay() == 3)
+	// 4:20
+	if ((new Date()).getDay() == 3) {
 		mottos.push("It is wednesday my dudes");
+	}
 
 	// my own web-framework or something, idk didn't watched JQuery
 	function $(id) {
