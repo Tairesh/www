@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Squash Commits in Git — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header>
+    <h1><img src="/favicon.svg" alt=">"> <span class="path">/home/tairesh</span> <span class="accent">$</span></h1>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <article>
+        <h2><span class="accent">#</span> How to Squash Commits in <mark>Git</mark></h2>
+        <p>Ever struggled to understand a messy <mark>Git</mark> history filled with tiny, incremental commits? Squashing commits is your solution for a cleaner, more navigable project timeline. This powerful Git technique allows you to combine multiple related commits into a single, meaningful one, significantly improving clarity when reviewing pull requests or tracking down changes.</p>
+        <h4>TLDR:</h3>
+        <ol>
+            <li><code>git rebase -i HEAD~N</code></li>
+            <li><code>pick</code> → <code>s</code>/<code>f</code></li>
+            <li><kbd>:wq</kbd></li>
+            <li><code>git push --force-with-lease</code></li>
+        </ol>
+        <h4>1. Start an Interactive Rebase: <code>git rebase -i HEAD~N</code> or <code>git rebase -i {commit-hash}</code></h4>
+        <p>The first step is to initiate an interactive rebase. This is a useful Git command that allows you to modify commits in various ways, including squashing them.</p>
+        <ul>
+            <li><code>git rebase -i HEAD~N</code>:<ul>
+                <li><code>git rebase</code>: This command is fundamentally about re-applying commits on top of a new base commit.</li>
+                <li><code>-i</code> (or <code>--interactive</code>): This flag tells Git you want to manually edit the list of commits that will be rebased. It opens an editor with a list of the commits you're about to work on.</li>
+                <li><code>HEAD~N</code>:<ul>
+                    <li><code>HEAD</code> refers to your current commit (the tip of your current branch).</li>
+                    <li><code>~N</code> specifies the number of commits to include in the rebase, counting backwards from <code>HEAD</code>. For example, <code>HEAD~3</code> will list the last three commits for you to edit. So, if you want to squash the last 3 commits, you'd use <code>N=3</code>.</li>
+                </ul></li>
+            </ul></li>
+            <li><strong>Alternative:</strong> <code>git rebase -i {commit-hash}</code>:<ul>
+                <li>Instead of counting commits with <code>HEAD~N</code>, you can specify a particular commit hash. This command will list all commits on your current branch that came <strong>after</strong> the specified <code>{commit-hash}</code>. This is useful if you want to squash a series of commits that aren't necessarily the most recent ones, or if you know the exact commit before the sequence you want to squash.</li>
+            </ul></li>
+        </ul>
+        <p>Once you run this command, Git will open your default text editor (usually <mark>Vim</mark> or <mark>Nano</mark>) with a list of the commits you've selected. Each line will look something like this:</p>
+        <pre><code>pick f7f3f6d Good commit message
+pick 310154e Fix typo
+pick a5f4a0d Upd style</code></pre>
+        <p>These are listed with the oldest commit in your selection at the top and the newest at the bottom.</p>
+        <h4>2. Choose Which Commits to <code>pick</code> and <code>squash</code></h4>
+        <p>Now, you'll tell Git how to handle each commit in the list. You do this by changing the word <code>pick</code> at the beginning of each line (except usually the first one you want to keep).</p>
+        <ul>
+            <li><code>pick</code>: Keep this command for the commit you want to be the base of your squashed commit. This is typically the earliest commit in the sequence you're modifying (the one at the top of the list in the editor). This commit will remain, and others will be merged into it.</li>
+            <li><code>squash</code> (or <code>s</code>): This means you want to combine this commit with the previous one. The commit message of the squashed commit will be added to the previous commit's message.</li>
+            <li><code>fixup</code> (or <code>f</code>): Similar to <code>squash</code>, but it discards the commit message of the squashed commit, keeping only the message of the previous commit.</li>
+        </ul>
+        <h5>Example:</h5>
+        <pre><code>pick f7f3f6d Good commit message
+f 310154e Fix typo
+f a5f4a0d Upd style</code></pre>
+        <p class="notice">Other useful interactive rebase commands (though not the focus here) include <code>reword</code> (to change the commit message without altering the content), <code>edit</code> (to amend the commit's content), and <code>drop</code> (to delete the commit entirely).</p>
+        <h4>3. Save & Edit Commit Message</h4>
+        <p>Once you've marked your commits with pick and squash (or other commands), save the file and close your editor.</p>
+        <p>If your default editor is <mark>Vim</mark>, you do this by typing <kbd>:wq</kbd> and pressing <kbd>Enter</kbd>. For <mark>Nano</mark> just press <kbd>Ctrl+X</kbd>. For other editors, use their standard save and quit commands.</p>
+        <p>After you save the rebase instruction file, Git will process the squashing. It will then open another editor window. This time, it's for you to create the commit message for the new, combined (squashed) commit.</p>
+        <p>Git will typically pre-fill this new message with a concatenation of all the commit messages from the commits you squashed. You should edit this thoroughly to create a single, clear, and concise message that accurately describes the combined changes.</p>
+        <h4>Push Your Changes: <code>git push --force</code> or <code>git push --force-with-lease</code></h4>
+        <p>Because rebasing (and thus squashing) rewrites commit history, your local branch will now have a different history than its remote counterpart. A regular git <code>git push</code> will be rejected by the remote repository because the histories have diverged.</p>
+        <p>To update the remote branch with your new, squashed history, you must use a force push:</p>
+        <ul>
+            <li><code>git push --force</code>: This command tells Git to overwrite the remote branch with the state of your local branch.<br>
+<strong>Warning:</strong> <code>git push --force</code> is a destructive command. If other people have pulled the old version of the branch and based their work on it, force pushing will make it very difficult for them to integrate their changes. It can effectively erase history on the remote that others might be relying on.</li>
+            <li><code>git push --force-with-lease</code>: This is a safer alternative. It will only force the push if the remote branch is in the state you expect it to be (i.e., no one else has pushed new commits to it since your last pull/fetch). If someone else has pushed changes, the <code>--force-with-lease</code> push will fail, preventing you from accidentally overwriting their work. You'd then need to pull their changes, potentially rebase again, and then try the push.</li>
+        </ul>
+        <h4>Best Practices for Force Pushing:</h4>
+        <ul>
+            <li><strong>Never force push to shared branches like <code>main</code>, <code>master</code>, or <code>develop</code> unless you are absolutely certain of what you are doing.</strong></li>
+            <li>Always communicate with your team before force pushing, especially on shared branches.</li>
+            <li>Use <code>--force-with-lease</code> whenever possible to avoid overwriting others' work.</li>
+        </ul>
+        <h4>What if something goes wrong during the rebase?</h4>
+        <p>If you make a mistake during the interactive rebase process or change your mind, you can usually abort it and return your branch to its state before you started the rebase by running: <code>git rebase --abort</code></p>
+    </article>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>

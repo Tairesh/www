@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ Post Title }} — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+<header>
+    <h1><img src="/favicon.svg" alt=">"> <span class="path">/home/tairesh</span> <span class="accent">$</span></h1>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <article>
+        <h2><span class="accent">#</span> {{ Post Title }}</h2>
+        <time datetime="{{ Post Date }}">{{ Post Date }}</time>
+        {{ Post Content }}
+    </section>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>

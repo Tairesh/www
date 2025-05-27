@@ -145,6 +145,10 @@ mark {
     text-wrap: nowrap;
 }
 
+aside, details, pre, progress {
+    background-color: var(--header-bg);
+}
+
 @media only screen and (width <= 1000px) {
     body > header {
         display: block;
