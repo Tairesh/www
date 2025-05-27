@@ -81,8 +81,12 @@ section {
     padding: 0;
 }
 
-section h1, section h2, section h3, section h4 {
+section h1, aside h4 {
     margin: 0;
+}
+
+section h2 {
+    margin: 1rem 0;
 }
 
 article {
@@ -110,8 +114,10 @@ article p {
     margin: 1rem 0;
 }
 
-article.notice {
+#experience article.notice {
     padding: 0 1rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
 }
 
 section > p.notice {
@@ -189,6 +195,7 @@ aside, details, pre, progress {
 @media print {
     body, p {
         font-size: 1em;
+        line-height: 1.5;
     }
 
     body > header {
@@ -218,5 +225,11 @@ aside, details, pre, progress {
 
     article p {
         margin: 0.5rem 0;
+    }
+
+    mark {
+        border: none;
+        padding: 0;
+        border-bottom: solid 1px black;
     }
 }
