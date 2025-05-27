@@ -21,9 +21,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
 
+      - name: Set up Just
+        uses: extractions/setup-just@v3
+
       - name: Deploy to xmit
-        run: |
-          cd public
-          npx @xmit.co/xmit tairesh.xmit.dev@${{ secrets.XMIT_TEAM }}
+        run: just deploy
         env:
           XMIT_KEY: ${{ secrets.XMIT_TOKEN }}
