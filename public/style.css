@@ -114,6 +114,11 @@ article.notice {
     padding: 0 1rem;
 }
 
+section > p.notice {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
 body > footer {
     text-align: center;
     color: var(--text-light);
