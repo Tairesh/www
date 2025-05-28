@@ -1,0 +1,22 @@
+name: validate
+
+on:
+  push:
+    paths:
+      - '**.html'
+  pull_request:
+    paths:
+      - '**.html'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: HTML5 Validator
+        uses: Cyb3r-Jak3/html5validator-action@master
+        with:
+          root: .
