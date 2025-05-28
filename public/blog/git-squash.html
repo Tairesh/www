@@ -23,13 +23,15 @@
     <article>
         <h2><span class="accent">#</span> How to Squash Commits in <mark>Git</mark></h2>
         <p>Ever struggled to understand a messy <mark>Git</mark> history filled with tiny, incremental commits? Squashing commits is your solution for a cleaner, more navigable project timeline. This powerful Git technique allows you to combine multiple related commits into a single, meaningful one, significantly improving clarity when reviewing pull requests or tracking down changes.</p>
-        <h4>TLDR:</h3>
-        <ol>
-            <li><code>git rebase -i HEAD~N</code></li>
-            <li><code>pick</code> → <code>s</code>/<code>f</code></li>
-            <li><kbd>:wq</kbd></li>
-            <li><code>git push --force-with-lease</code></li>
-        </ol>
+        <details>
+            <summary>TLDR:</summary>
+            <ol>
+                <li><code>git rebase -i HEAD~N</code></li>
+                <li><code>pick</code> → <code>s</code>/<code>f</code></li>
+                <li><kbd>:wq</kbd></li>
+                <li><code>git push --force-with-lease</code></li>
+            </ol>
+        </details>
         <h4>1. Start an Interactive Rebase: <code>git rebase -i HEAD~N</code> or <code>git rebase -i {commit-hash}</code></h4>
         <p>The first step is to initiate an interactive rebase. This is a useful Git command that allows you to modify commits in various ways, including squashing them.</p>
         <ul>
