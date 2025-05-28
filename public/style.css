@@ -41,7 +41,7 @@ body > header {
 body > header > .logo {
     font-family: var(--mono-font), monospace;
     font-size: 1em;
-    line-height: 3.7;
+    line-height: 2;
     margin: 0;
     margin-left: 0.5rem;
     cursor: default;
