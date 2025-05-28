@@ -38,18 +38,19 @@
         <p>If you use this often, create an alias to save time.</p>
         <h4><span class="accent">##</span> Bash</h4>
         <pre><samp>echo "alias add-amend='git add . &amp;&amp; git commit -a --amend --reset-author --no-edit'" &gt;&gt; ~/.bashrc
-        source ~/.bashrc</samp></pre>
+source ~/.bashrc</samp></pre>
 
         <h4><span class="accent">##</span> Fish</h4>
         <pre><samp>alias add-amend="git add .; and git commit -a --amend --reset-author --no-edit"</samp></pre>
 
         <p>Now just run <samp>add-amend</samp> whenever you need to amend your last commit.</p>
     </article>
-    <article>
-        <h2><span class="accent">#</span> Example Use Case</h2>
-        <p>For example, after running <samp>git commit</samp>, you realize a file was missed, or you committed using the wrong email. Just run:</p>
-        <pre><samp>add-amend</samp></pre>
-        <p>This stages changes and amends the last commit in one step, resetting the author metadata if needed.</p>
+    <article id="rebase">
+        <h2><span class="accent">#</span> Bonus: Editing Old Commits with Git Rebase</h2>
+        <p>If the commit you want to change isn't the last one, use <samp>git rebase -i</samp> to go back and edit it:</p>
+        <pre><samp>git rebase -i HEAD~3</samp></pre>
+        <p>In the interactive list that appears, change <samp>pick</samp> to <samp>edit</samp> (or just <samp>e</samp>) next to the commit you want to fix. Git will pause the rebase at that commit. You can then do the changes and stage them with <samp>git add</samp>. Then continue with <code>git rebase --continue</code></p>
+        <p>This is great for fixing small typos or adding forgotten files without creating new commits.</p>
     </article>
 </main>
 <footer>
