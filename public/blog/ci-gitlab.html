@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab CI Snippets — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header>
+    <div class="logo"><img src="/favicon.svg" alt=">_"> <span class="path">/home/tairesh</span> <span class="accent">$</span></div>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <section>
+        <article>
+            <h2><span class="accent">#</span> GitLab CI Snippets</h2>
+            <p>Some <code>.gitlab-ci.yml</code> examples from my projects.</p>
+        </article>
+        <article>
+            <h2><span class="accent">##</span> Deploy via SSH</h2>
+            <p>This example will log in to <code>$VPS_ADDRESS</code> as <code>$VPS_USERNAME</code> via <code>$SSH_PRIVATE_KEY</code> and execute simple update command in <code>$WORKING_DIR</code>.</p>
+            <pre><code lang="yaml">image: centos:7
+
+stages:
+    - deploy
+
+before_script:
+    - yum install which -y
+    - 'which ssh-agent || ( yum install openssh-clients -y )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+
+production:
+    stage: deploy
+    script:
+        - ssh -t $VPS_USERNAME@$VPS_ADDRESS "cd $WORKING_DIR && git pull && make composer-install && make migration"
+    only:
+        - main</code></pre>
+        </article>
+        <article>
+            <h2><span class="accent">##</span> Check, Then Deploy</h2>
+            <p>This script will run <code>flake8</code> check on latest <mark>Python</mark> image and deploy only if check step is succeed.</p>
+            <pre><code lang="yaml">image: python:latest
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+stages:
+    - check
+    - deploy
+
+check:
+    stage: check
+    cache:
+      paths:
+        - .cache/pip
+        - venv/
+    script:
+        - python -m pip install --upgrade pip
+        - pip install flake8
+        - flake8 . --count --max-line-length=127 --show-source --statistics --exclude .git,__pycache__,venv
+
+deploy:
+    stage: deploy
+    script:
+        - 'which ssh-agent || ( apt-get install openssh-client -y )'
+        - eval $(ssh-agent -s)
+        - ssh-add <(echo "$SSH_PRIVATE_KEY")
+        - mkdir -p ~/.ssh
+        - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+        - ssh -t $VPS_USERNAME@$VPS_ADDRESS "cd $WORKING_DIR && git checkout main && git pull && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart $SERVICE_NAME"
+    only:
+        - main</code></pre>
+        </article>
+    </section>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>

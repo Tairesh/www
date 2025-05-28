@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Actions Snippets — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header>
+    <div class="logo"><img src="/favicon.svg" alt=">_"> <span class="path">/home/tairesh</span> <span class="accent">$</span></div>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <article>
+        <h2><span class="accent">#</span> GitHub Actions Snippets</h2>
+        <p>Some useful configs for my beloved green badges in <code>README.md</code>, automatic deploy, and more.</p>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Deploy to <a href="https://xmit.co" target="_blank" rel="noopener noreferrer">xmit.co</a> via <mark>Just</mark> command</h2>
+        <p>The <code>deploy.yaml</code> for this website:</p>
+        <pre><code lang="yaml">name: deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Allow one concurrent deployment
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+
+      - name: Set up Just
+        uses: extractions/setup-just@v3
+
+      - name: Deploy to xmit
+        run: just deploy
+        env:
+          XMIT_KEY: ${{ secrets.XMIT_TOKEN }}</code></pre>
+        <p>The <code>justfile</code> for this website:</p>
+        <pre><code lang="Just">set dotenv-load := true
+
+serve:
+    npx http-server public/ -o -p 8080
+
+deploy:
+    npx @xmit.co/xmit $XMIT_DOMAIN public/</code></pre>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Deploy via SSH</h2>
+        <p>The <code>deploy.yml</code> for my Telegram-bot <a href="https://github.com/Tairesh/ashley" target="_blank" rel="noopener noreferrer">Ashley</a>:</p>
+        <pre><code lang="yaml">name: deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install SSH agent
+        run: which ssh-agent || ( apt-get install openssh-client -y )
+      - name: Deploy
+        run: |
+          eval `ssh-agent -s`
+          ssh-add <(echo "${{ secrets.SSH_PRIVATE_KEY }}")
+          mkdir -p ~/.ssh
+          echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+          ssh -t ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_ADDRESS}} "cd ${{ secrets.WORKING_DIR }} && git checkout main && git pull && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart ashleybot.service"</code></pre>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Validate HTML</h2>
+        <pre><code lang="yaml">name: validate
+
+on:
+  push:
+    paths:
+      - '**.html'
+  pull_request:
+    paths:
+      - '**.html'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: HTML5 Validator
+        uses: Cyb3r-Jak3/html5validator-action@master
+        with:
+          root: .</code></pre>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Validate JSON</h2>
+        <pre><code lang="yaml">name: JSON check
+
+on:
+  push:
+    paths:
+      - '**.json'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '**.json'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: json-syntax-check
+        uses: limitusus/json-syntax-check@v2
+        with:
+          pattern: "\\.json$"</code></pre>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Run Tests & Checks for a <mark>Rust</mark> Project</h2>
+        <pre><code lang="yaml">name: tests
+
+on:
+  push:
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - '.github/workflows/tests.yml'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - '.github/workflows/tests.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Install Rust toolchain"
+        uses: dtolnay/rust-toolchain@master
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy,rustfmt
+          override: true
+
+      - name: "Fmt check"
+        run: cargo fmt --all -- --check
+
+      - name: "Run tests"
+        run: cargo test --all --no-fail-fast
+
+      - name: "Run clippy"
+        run: cargo clippy -- -D warnings -D clippy::pedantic -A clippy::cast_precision_loss -A clippy::cast_possible_truncation -A clippy::cast_possible_wrap -A clippy::cast_sign_loss -A clippy::cast_lossless -A clippy::module_name_repetitions -A clippy::unnecessary_box_returns --verbose --no-deps</code></pre>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Automatic Release for a <mark>Rust</mark> <mark>SDL2</mark> Project</h2>
+        <p>This snippet will build project on Linux, Windows, and MacOS; automatically create a release, and upload archives with binaries to GitHub</p>
+        <p>The instruction <code>tags: [ "v[0-9]+.*" ]</code> will run it only on tags with semver-like name (e.g. <code>v1.2.3</code>)</p>
+        <pre><code lang="yaml">name: release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - v[0-9]+.*
+  workflow_dispatch:
+
+env:
+  GLOBAL_ENV_EXAMPLE:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Create release"
+        uses: taiki-e/create-gh-release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-2019
+          - name: Linux
+            os: ubuntu-latest
+          - name: OSX
+            os: macos-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Install Rust toolchain"
+        uses: dtolnay/rust-toolchain@master
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: "Install SDL2 (linux)"
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install libsdl2-dev
+
+      - name: "Install SDL2 (mac)"
+        if: runner.os == 'macOS'
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=yes HOMEBREW_NO_INSTALL_CLEANUP=yes brew install sdl2
+
+      - name: "Install SDL2 (windows)"
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Import-Module BitsTransfer
+          Start-BitsTransfer -Source "https://www.libsdl.org/release/SDL2-devel-2.0.22-VC.zip" -Destination SDL2.zip
+          Expand-Archive -Path SDL2.zip -Destination .
+          Get-ChildItem -Path SDL2-2.0.22/lib/x64/ -Recurse -File | Move-Item -Destination . -Force
+
+      - name: "Build and upload binary"
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: midia
+          archive: $bin-$tag-${{ runner.os }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          include: LICENSE,README.md,data
+          leading_dir: true</code></pre>
+    </article>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>
