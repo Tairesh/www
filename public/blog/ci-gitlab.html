@@ -23,12 +23,12 @@
     <section>
         <article>
             <h2><span class="accent">#</span> GitLab CI Snippets</h2>
-            <p>Some <code>.gitlab-ci.yml</code> examples from my projects.</p>
+            <p>Some <samp>.gitlab-ci.yml</samp> examples from my projects.</p>
         </article>
         <article>
             <h2><span class="accent">##</span> Deploy via SSH</h2>
-            <p>This example will log in to <code>$VPS_ADDRESS</code> as <code>$VPS_USERNAME</code> via <code>$SSH_PRIVATE_KEY</code> and execute simple update command in <code>$WORKING_DIR</code>.</p>
-            <pre><code lang="yaml">image: centos:7
+            <p>This example will log in to <samp>$VPS_ADDRESS</samp> as <samp>$VPS_USERNAME</samp> via <samp>$SSH_PRIVATE_KEY</samp> and execute simple update command in <samp>$WORKING_DIR</samp>.</p>
+            <pre><code data-lang="yaml">image: centos:7
 
 stages:
     - deploy
@@ -37,7 +37,7 @@ before_script:
     - yum install which -y
     - 'which ssh-agent || ( yum install openssh-clients -y )'
     - eval $(ssh-agent -s)
-    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - ssh-add &lt;(echo "$SSH_PRIVATE_KEY")
     - mkdir -p ~/.ssh
     - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
 
@@ -50,8 +50,8 @@ production:
         </article>
         <article>
             <h2><span class="accent">##</span> Check, Then Deploy</h2>
-            <p>This script will run <code>flake8</code> check on latest <mark>Python</mark> image and deploy only if check step is succeed.</p>
-            <pre><code lang="yaml">image: python:latest
+            <p>This script will run <samp>flake8</samp> check on latest <mark>Python</mark> image and deploy only if check step is succeed.</p>
+            <pre><code data-lang="yaml">image: python:latest
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -76,7 +76,7 @@ deploy:
     script:
         - 'which ssh-agent || ( apt-get install openssh-client -y )'
         - eval $(ssh-agent -s)
-        - ssh-add <(echo "$SSH_PRIVATE_KEY")
+        - ssh-add &lt;(echo "$SSH_PRIVATE_KEY")
         - mkdir -p ~/.ssh
         - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
         - ssh -t $VPS_USERNAME@$VPS_ADDRESS "cd $WORKING_DIR && git checkout main && git pull && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart $SERVICE_NAME"

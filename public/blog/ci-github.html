@@ -22,12 +22,12 @@
 <main>
     <article>
         <h2><span class="accent">#</span> GitHub Actions Snippets</h2>
-        <p>Some useful configs for my beloved green badges in <code>README.md</code>, automatic deploy, and more.</p>
+        <p>Some useful configs for my beloved green badges in <samp>README.md</samp>, automatic deploy, and more.</p>
     </article>
     <article>
         <h2><span class="accent">##</span> Deploy to <a href="https://xmit.co" target="_blank" rel="noopener noreferrer">xmit.co</a> via <mark>Just</mark> command</h2>
-        <p>The <code>deploy.yaml</code> for this website:</p>
-        <pre><code lang="yaml">name: deploy
+        <p>The <samp>deploy.yaml</samp> for this website:</p>
+        <pre><code data-lang="yaml">name: deploy
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
         run: just deploy
         env:
           XMIT_KEY: ${{ secrets.XMIT_TOKEN }}</code></pre>
-        <p>The <code>justfile</code> for this website:</p>
-        <pre><code lang="Just">set dotenv-load := true
+        <p>The <samp>justfile</samp> for this website:</p>
+        <pre><code data-lang="Just">set dotenv-load := true
 
 serve:
     npx http-server public/ -o -p 8080
@@ -68,8 +68,8 @@ deploy:
     </article>
     <article>
         <h2><span class="accent">##</span> Deploy via SSH</h2>
-        <p>The <code>deploy.yml</code> for my Telegram-bot <a href="https://github.com/Tairesh/ashley" target="_blank" rel="noopener noreferrer">Ashley</a>:</p>
-        <pre><code lang="yaml">name: deploy
+        <p>The <samp>deploy.yml</samp> for my Telegram-bot <a href="https://github.com/Tairesh/ashley" target="_blank" rel="noopener noreferrer">Ashley</a>:</p>
+        <pre><code data-lang="yaml">name: deploy
 
 on:
   push:
@@ -86,14 +86,14 @@ jobs:
       - name: Deploy
         run: |
           eval `ssh-agent -s`
-          ssh-add <(echo "${{ secrets.SSH_PRIVATE_KEY }}")
+          ssh-add &lt;(echo "${{ secrets.SSH_PRIVATE_KEY }}")
           mkdir -p ~/.ssh
           echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
           ssh -t ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_ADDRESS}} "cd ${{ secrets.WORKING_DIR }} && git checkout main && git pull && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart ashleybot.service"</code></pre>
     </article>
     <article>
         <h2><span class="accent">##</span> Validate HTML</h2>
-        <pre><code lang="yaml">name: validate
+        <pre><code data-lang="yaml">name: validate
 
 on:
   push:
@@ -118,7 +118,7 @@ jobs:
     </article>
     <article>
         <h2><span class="accent">##</span> Validate JSON</h2>
-        <pre><code lang="yaml">name: JSON check
+        <pre><code data-lang="yaml">name: JSON check
 
 on:
   push:
@@ -144,7 +144,7 @@ jobs:
     </article>
     <article>
         <h2><span class="accent">##</span> Run Tests & Checks for a <mark>Rust</mark> Project</h2>
-        <pre><code lang="yaml">name: tests
+        <pre><code data-lang="yaml">name: tests
 
 on:
   push:
@@ -191,8 +191,8 @@ jobs:
     <article>
         <h2><span class="accent">##</span> Automatic Release for a <mark>Rust</mark> <mark>SDL2</mark> Project</h2>
         <p>This snippet will build project on Linux, Windows, and MacOS; automatically create a release, and upload archives with binaries to GitHub</p>
-        <p>The instruction <code>tags: [ "v[0-9]+.*" ]</code> will run it only on tags with semver-like name (e.g. <code>v1.2.3</code>)</p>
-        <pre><code lang="yaml">name: release
+        <p>The instruction <samp>tags: [ "v[0-9]+.*" ]</samp> will run it only on tags with semver-like name (e.g. <samp>v1.2.3</samp>)</p>
+        <pre><code data-lang="yaml">name: release
 
 permissions:
   contents: write

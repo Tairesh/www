@@ -23,32 +23,32 @@
     <article>
         <h2><span class="accent">#</span> How to Quickly Edit Last Commit in <mark>Git</mark></h2>
         <p>Sometimes I forget to add files before committing. Instead of creating a new commit, I prefer to amend the last one. My quick fix looks like this:</p>
-        <pre><code>git add . &amp;&amp; git commit -a --amend --reset-author --no-edit</code></pre>
+        <pre><samp>git add . &amp;&amp; git commit -a --amend --reset-author --no-edit</samp></pre>
         <p>This command:</p>
         <ul>
-            <li><code>git add .</code> — stages all changes in the working directory.</li>
-            <li><code>git commit -a --amend</code> — updates the previous commit with these changes.</li>
-            <li><code>--reset-author</code> — resets the author info and updates the commit timestamp. Handy if you've committed with the wrong Git identity (e.g., personal email in a work repo or vice versa).</li>
-            <li><code>--no-edit</code> — keeps the original commit message unchanged.</li>
+            <li><samp>git add .</samp> — stages all changes in the working directory.</li>
+            <li><samp>git commit -a --amend</samp> — updates the previous commit with these changes.</li>
+            <li><samp>--reset-author</samp> — resets the author info and updates the commit timestamp. Handy if you've committed with the wrong Git identity (e.g., personal email in a work repo or vice versa).</li>
+            <li><samp>--no-edit</samp> — keeps the original commit message unchanged.</li>
         </ul>
-        <p>It's a neat way to fix an incomplete commit without polluting history with unnecessary ones and deep diving into <code>git rebase</code>.</p>
+        <p>It's a neat way to fix an incomplete commit without polluting history with unnecessary ones and deep diving into <samp>git rebase</samp>.</p>
     </article>
     <article>
         <h2><span class="accent">#</span> Setting Up a Shortcut</h2>
         <p>If you use this often, create an alias to save time.</p>
         <h4><span class="accent">##</span> Bash</h4>
-        <pre><code>echo "alias add-amend='git add . &amp;&amp; git commit -a --amend --reset-author --no-edit'" &gt;&gt; ~/.bashrc
-        source ~/.bashrc</code></pre>
+        <pre><samp>echo "alias add-amend='git add . &amp;&amp; git commit -a --amend --reset-author --no-edit'" &gt;&gt; ~/.bashrc
+        source ~/.bashrc</samp></pre>
 
         <h4><span class="accent">##</span> Fish</h4>
-        <pre><code>alias add-amend="git add .; and git commit -a --amend --reset-author --no-edit"</code></pre>
+        <pre><samp>alias add-amend="git add .; and git commit -a --amend --reset-author --no-edit"</samp></pre>
 
-        <p>Now just run <code>add-amend</code> whenever you need to amend your last commit.</p>
+        <p>Now just run <samp>add-amend</samp> whenever you need to amend your last commit.</p>
     </article>
     <article>
         <h2><span class="accent">#</span> Example Use Case</h2>
-        <p>For example, after running <code>git commit</code>, you realize a file was missed, or you committed using the wrong email. Just run:</p>
-        <pre><code>add-amend</code></pre>
+        <p>For example, after running <samp>git commit</samp>, you realize a file was missed, or you committed using the wrong email. Just run:</p>
+        <pre><samp>add-amend</samp></pre>
         <p>This stages changes and amends the last commit in one step, resetting the author metadata if needed.</p>
     </article>
 </main>
