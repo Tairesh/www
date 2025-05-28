@@ -38,7 +38,7 @@ body > header {
     margin-bottom: 1em;
 }
 
-body > header > h1 {
+body > header > .logo {
     font-family: var(--mono-font), monospace;
     font-size: 1em;
     line-height: 3.7;
@@ -47,13 +47,13 @@ body > header > h1 {
     cursor: default;
 }
 
-body > header > h1 > img {
+body > header > .logo > img {
     width: 1.3em;
     opacity: 1;
     vertical-align: text-bottom;
 }
 
-body > header > h1 > .path {
+body > header > .logo > .path {
     color: var(--text-light);
 }
 
