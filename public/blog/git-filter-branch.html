@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Fix Wrong Commit Emails with git filter-branch — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header>
+    <div class="logo"><img src="/favicon.svg" alt=">_"> <span class="path">/home/tairesh</span> <span class="accent">$</span></div>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <article>
+        <h2><span class="accent">#</span> How to Fix Wrong Commit Emails with <samp>git filter-branch</samp></h2>
+        <p>If you've made commits using the wrong email (e.g., personal email in a work repo), <samp>git filter-branch</samp> lets you rewrite history to fix them across your entire Git repository.</p>
+        
+        <h4><span class="accent">##</span> TLDR; Fix All And Everywhere:</h4>
+        <pre><samp>git filter-branch --env-filter '
+OLD_EMAIL="your-old-email@example.com"
+CORRECT_NAME="Your Correct Name"
+CORRECT_EMAIL="your-correct-email@example.com"
+
+if [ "$GIT_COMMITTER_EMAIL" = "$OLD_EMAIL" ]
+then
+    export GIT_COMMITTER_NAME="$CORRECT_NAME"
+    export GIT_COMMITTER_EMAIL="$CORRECT_EMAIL"
+fi
+
+if [ "$GIT_AUTHOR_EMAIL" = "$OLD_EMAIL" ]
+then
+    export GIT_AUTHOR_NAME="$CORRECT_NAME"
+    export GIT_AUTHOR_EMAIL="$CORRECT_EMAIL"
+fi
+' --tag-name-filter cat -- --branches --tags</samp></pre>
+
+        <h4><span class="accent">##</span> What <samp>git filter-branch</samp> Does</h4>
+        <p>This command rewrites Git history by creating a new set of commits that replace the old ones. You can use it to change commit metadata like author name and email, remove sensitive files, or modify commit messages.</p>
+        <ul>
+            <li><samp>--env-filter</samp>: Runs a shell script to set environment variables that change commit metadata.</li>
+            <li><samp>OLD_EMAIL</samp>: The incorrect email you want to replace.</li>
+            <li><samp>CORRECT_NAME</samp> and <samp>CORRECT_EMAIL</samp>: The correct author/committer details.</li>
+            <li><samp>if [...]</samp>: Checks each commit and updates metadata if the email matches <samp>OLD_EMAIL</samp>.</li>
+            <li><samp>--tag-name-filter cat</samp>: Rewrites tags to point to the rewritten commits.</li>
+            <li><samp>-- --branches --tags</samp>: Applies the rewriting to all branches and tags.</li>
+        </ul>
+
+        <h4><span class="accent">##</span> Warning</h4>
+        <p>This rewrites history. After running this, you'll need to force-push to shared repositories:</p>
+        <pre><samp>git push --force --tags origin 'refs/heads/*'</samp></pre>
+        <p>Only use on repos where you understand the consequences and can coordinate with collaborators.</p>
+    </article>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>
