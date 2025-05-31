@@ -6,7 +6,7 @@
     --border: #52674d;
     --header-bg: #f0f0f0;
     --code: #009900;
-    --marked: #009900;
+    --marked: #a5f5a5;
 }
 
 @media (prefers-color-scheme: dark) {
