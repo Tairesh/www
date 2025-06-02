@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ignoring Local Changes in Git — Tairesh's website</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header>
+    <div class="logo"><img src="/favicon.svg" alt=">_"> <span class="path">/home/tairesh</span> <span class="accent">$</span></div>
+    <nav>
+        <ul>
+            <li><a href="/">About</a></li>
+            <li><a href="/cv">CV</a></li>
+            <li><a href="/blog">Blog</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <article>
+        <h2><span class="accent">#</span> Ignoring Local Changes in Git</h2>
+        <p>Sometimes you want to change a file locally—like <samp>.vscode/settings.json</samp>, a <samp>.env</samp> file, or other config—but don’t want Git to track those changes. Here's how you can do that.</p>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Option 1: <samp>.git/info/exclude</samp></h2>
+        <p>If the file is not tracked (i.e., not in the Git index), you can add it to <samp>.git/info/exclude</samp>. This works just like a <samp>.gitignore</samp> file, but only affects your local clone.</p>
+
+        <pre><samp>.vscode/settings.json
+.env</samp></pre>
+
+        <p>This is ideal for ignoring files you never want tracked in your local repo, without touching the shared <samp>.gitignore</samp>.</p>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Option 2: <samp>git update-index --assume-unchanged</samp></h2>
+        <p>If the file is already tracked (committed in the repo), you can't use <samp>.gitignore</samp>. Instead, run:</p>
+        <pre><samp>git update-index --assume-unchanged &lt;path-to-file&gt;</samp></pre>
+        <p>This tells Git to ignore local changes to that file — it won't show up in <samp>git status</samp> or get included in commits.</p>
+        <p>To reverse it:</p>
+        <pre><samp>git update-index --no-assume-unchanged &lt;path-to-file&gt;</samp></pre>
+        <p>To see which files are being hidden this way:</p>
+        <pre><samp>git ls-files -v | grep '^h'</samp></pre>
+
+        <h4><span class="accent">###</span> Warning</h4>
+            <p>If someone else updates the file in the repo, <samp>git pull</samp> may fail due to conflicts. In
+                that case:</p>
+            <ol>
+                <li>Run <samp>git update-index --no-assume-unchanged</samp></li>
+                <li>Stash or discard your local changes</li>
+                <li>Pull changes</li>
+                <li>Restore your local edits (if needed)</li>
+            </ol>
+    </article>
+</main>
+<footer>
+    <p>&copy; 2011-2025 Ilia Agafonov</p>
+</footer>
+</body>
+</html>
