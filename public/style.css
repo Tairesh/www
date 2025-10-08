@@ -160,6 +160,15 @@ aside, details, pre, progress {
     background-color: var(--header-bg);
 }
 
+#about-me {
+    padding-bottom: 1rem;
+}
+
+#about-me p {
+    margin-bottom: 0.1rem;
+    margin-top: 0.5rem;
+}
+
 @media only screen and (width <= 1000px) {
     body > header {
         display: block;
