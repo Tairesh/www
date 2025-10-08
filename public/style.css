@@ -228,8 +228,21 @@ aside, details, pre, progress {
     }
 
     mark {
-        border: none;
         padding: 0;
+        border: none;
         border-bottom: solid 1px black;
+        border-radius: 0;
+        background: none;
     }
+
+    .contact-list a[href^="http"]::after {
+        content: "";
+        display: none;
+    }
+
+    .contact-list a[href^="https://t.me"]::after {
+        content: "";
+        display: none;
+    }
+
 }
