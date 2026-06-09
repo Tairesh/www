@@ -28,6 +28,7 @@
     <article id="s1">
         <h2><span class="accent">##</span> 1. Who this is for</h2>
         <p>You are building a customer-communication app — a help desk, a CRM, a chatbot — and you want operators in your app to send and receive Instagram DMs on behalf of one or more connected business accounts. End users send messages from their personal Instagram app; your app needs them in its UI within a second or two; your operators reply from your UI; their replies need to land in the customer's Instagram inbox.</p>
+        <p>Also, most of the concepts here apply to other scenarios where you need to handle messaging for business accounts on social platforms. AI bots can work by the same scenario as well. But if you are making AI-powered messaging platform, please reconsider what you are doing <a href="https://ai-2027.com/">in this world</a>.</p>
         <p>The Business Login flow gives you exactly that: DMs, two-way, on connected <strong>Instagram Business</strong> (or <strong>Creator</strong>) accounts. It does <strong>not</strong> give you:</p>
         <ul>
             <li>public comments on posts</li>
@@ -112,8 +113,8 @@
                 </tr>
             </tbody>
         </table>
-        <p class="notice"><strong>Pin this rule.</strong> The verify token authenticates the URL once. The App Secret authenticates each event afterwards. If you find yourself reaching for the verify token while validating an inbound event, stop — you're using the wrong key.</p>
         <p>HTTPS is mandatory on both <samp>IG_REDIRECT_URI</samp> and your webhook URL — Meta refuses HTTP for either.</p>
+        <p class="notice"><strong>Local webhook testing tip:</strong> Use a tool like Cloudflare Tunnel or ngrok to expose your local server over HTTPS.</p>
     </article>
     <article id="s4">
         <h2><span class="accent">##</span> 4. OAuth login</h2>
