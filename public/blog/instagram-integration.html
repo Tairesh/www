@@ -23,7 +23,7 @@
     <article>
         <h2><span class="accent">#</span> Building an <mark>Instagram</mark> Messaging Integration</h2>
         <p>A language-agnostic walkthrough of every concern you need to handle when you let business accounts on Instagram receive and reply to direct messages through your own application: OAuth login, webhook subscription, signature verification, inbound delivery, outbound sending, and periodic token refresh.</p>
-        <p>The exact API surface described here is <strong>Instagram Graph API v25.0</strong> at <samp>graph.instagram.com</samp>, accessed via the <strong>Instagram Business Login</strong> flow — not the deprecated Basic Display API and not the older Page-mediated Messenger flow that routes through <samp>graph.facebook.com</samp>. Where the two diverge, this is called out.</p>
+        <p>The exact API surface described here is <strong>Instagram Graph API v26.0</strong> (current since 2026-07-29) at <samp>graph.instagram.com</samp>, accessed via the <strong>Instagram Business Login</strong> flow — not the deprecated Basic Display API and not the older Page-mediated Messenger flow that routes through <samp>graph.facebook.com</samp>. Where the two diverge, this is called out.</p>
     </article>
     <article id="s1">
         <h2><span class="accent">##</span> 1. Who this is for</h2>
@@ -37,6 +37,12 @@
             <li>DMs from non-business accounts you do not control</li>
         </ul>
         <p>You will need a Meta Developer app of type <strong>Business</strong>, with the <strong>Instagram</strong> and <strong>Webhooks</strong> products enabled, valid privacy-policy and terms-of-service URLs, a registered redirect URI, and (for production) Meta app review approving the requested scopes: <samp>instagram_business_basic</samp>, <samp>instagram_business_manage_messages</samp>.</p>
+        <p class="notice"><strong>Two gates stand between you and a working integration, and neither announces itself.</strong></p>
+        <ul>
+            <li><strong>Before App Review, only accounts holding the <em>Instagram Tester</em> role can connect.</strong> Not any role on the Meta app — that specific one, invited under the app's roles and then accepted by the account in its own Instagram settings. An account without it cannot complete the login at all. So no pilot with a real customer and no demo to a prospect until review is through.</li>
+            <li><strong>The app must be published before webhooks are delivered.</strong> In development mode the login succeeds, the subscription succeeds, <samp>/me/subscribed_apps</samp> reads back exactly the fields you asked for — and not one event ever arrives. It looks precisely like a broken webhook URL, and it will send you debugging the one part of the system that is fine.</li>
+        </ul>
+        <p>Budget for both in the schedule rather than discovering them the week you planned to launch. App Review also wants the deauthorize and data-deletion callbacks of <a href="#s5-5">§5.5</a> live and answering, so those are not "later" work either.</p>
         <p>The six concerns we cover, in order:</p>
         <ol>
             <li>OAuth login — getting an access token for the connected account.</li>
@@ -74,7 +80,7 @@
     </article>
     <article id="s3">
         <h2><span class="accent">##</span> 3. Prerequisites and configuration</h2>
-        <p>Five values from the Meta dashboard go into your application configuration:</p>
+        <p>Four values from the Meta dashboard go into your application configuration:</p>
         <table>
             <thead>
                 <tr><th>Env var</th><th>What it is</th></tr>
@@ -84,7 +90,6 @@
                 <tr><td><samp>IG_APP_SECRET</samp></td><td>Secret of your Instagram app</td></tr>
                 <tr><td><samp>IG_REDIRECT_URI</samp></td><td>OAuth callback URL — must match exactly what you send</td></tr>
                 <tr><td><samp>IG_WEBHOOK_VERIFY_TOKEN</samp></td><td>A long random string <strong>you choose</strong> for the GET handshake</td></tr>
-                <tr><td><samp>IG_GRAPH_BASE_URL</samp></td><td><samp>https://graph.instagram.com/v25.0</samp> (constant)</td></tr>
             </tbody>
         </table>
         <p>The four dashboard values all live under <em>App dashboard → Use cases → Manage messaging &amp; content on Instagram</em>, but at different sub-steps:</p>
@@ -94,6 +99,13 @@
             <li><samp>IG_REDIRECT_URI</samp> — <em>4. Set up Instagram business login → Business Login Settings</em>.</li>
         </ul>
         <p class="notice"><strong>Note: these are not the Meta app's ID and secret.</strong> Your Meta app has its own ID and secret on <em>Settings → Basic</em>; the Instagram app — added to it under <em>Use cases → Manage messaging &amp; content on Instagram</em> — is a separate entity with its own ID and secret. The OAuth exchanges and webhook signature in this article all expect the <em>Instagram</em> ones; pasting the Meta values will fail with non-obvious authentication errors.</p>
+        <h3><span class="accent">###</span> The three hosts</h3>
+        <p>Not configuration, just constants — but worth writing down in one place, because Meta serves this flow from three different origins and it is natural to assume one covers it:</p>
+        <ul>
+            <li><samp>https://www.instagram.com</samp> — where the browser authorizes (<a href="#s4-1">§4.1</a>).</li>
+            <li><samp>https://api.instagram.com</samp> — where the authorization code is exchanged (<a href="#s4-4">§4.4</a>).</li>
+            <li><samp>https://graph.instagram.com/v26.0</samp> — everything else: the long-lived exchange, <samp>/me</samp>, subscriptions, sends, refresh. The only one of the three that carries a version segment.</li>
+        </ul>
         <h3><span class="accent">###</span> The two-secrets-two-jobs rule</h3>
         <p>The single most common bug when implementing Meta webhooks is conflating the verify token with the App Secret. They are different secrets and they are used in different requests.</p>
         <table>
@@ -152,10 +164,11 @@ client_id=&lt;IG_APP_ID&gt;
         <p>Response:</p>
         <pre><code data-lang="json">{ "access_token": "IGQVJ...",
   "user_id": 178414...,
-  "permissions": ["instagram_business_basic", "instagram_business_manage_messages"] }</code></pre>
+  "permissions": "instagram_business_basic,instagram_business_manage_messages" }</code></pre>
+        <p><samp>permissions</samp> is a comma-separated <em>string</em>, not an array — a strictly-typed list here fails to deserialise the response. You do not need the field: <a href="#s4-6">§4.6</a> gets the identity from <samp>/me</samp>, so the only thing worth taking out of this response is the token itself.</p>
         <p>This token is valid for about an hour. Do <strong>not</strong> store it. Do <strong>not</strong> expose it to the browser.</p>
         <h3 id="s4-5"><span class="accent">###</span> 4.5 Exchange short-lived for long-lived</h3>
-        <pre><code data-lang="http">GET https://graph.instagram.com/v25.0/access_token
+        <pre><code data-lang="http">GET https://graph.instagram.com/v26.0/access_token
     ?grant_type=ig_exchange_token
     &amp;client_secret=&lt;IG_APP_SECRET&gt;
     &amp;access_token=&lt;short-lived-token&gt;</code></pre>
@@ -165,7 +178,7 @@ client_id=&lt;IG_APP_ID&gt;
   "expires_in": 5183944 }</code></pre>
         <p><samp>expires_in</samp> is in seconds; ~60 days. Compute and store <samp>expires_at = now + expires_in</samp>. <strong>This</strong> is the token you persist.</p>
         <h3 id="s4-6"><span class="accent">###</span> 4.6 Fetch the connected business account</h3>
-        <pre><code data-lang="http">GET https://graph.instagram.com/v25.0/me?fields=user_id,username,name
+        <pre><code data-lang="http">GET https://graph.instagram.com/v26.0/me?fields=user_id,username,name
     &amp;access_token=&lt;long-lived-token&gt;</code></pre>
         <p>Response:</p>
         <pre><code data-lang="json">{ "user_id": "178414...", "username": "yourbiz", "name": "Your Biz", "id": "178414..." }</code></pre>
@@ -174,29 +187,33 @@ client_id=&lt;IG_APP_ID&gt;
         <p>Pseudocode:</p>
         <pre><code data-lang="python">def on_oauth_callback(code, state):
     user_id = verify_jwt(state).user_id
-    short  = exchange_code_for_short_lived(code)
-    long   = exchange_short_for_long_lived(short.token)
+    short   = exchange_code_for_short_lived(code)
+    long    = exchange_short_for_long_lived(short.token)
     profile = fetch_profile(long.token)             # /me
 
-    existing = channel_repo.find_by_external_id(profile.user_id)
-    if existing:
-        existing.access_token = long.token
-        existing.access_token_expires_at = now() + long.expires_in
-        channel_repo.save(existing)
-        channel = existing
-    else:
-        channel = Channel(
-            owner_user_id        = user_id,
-            external_id          = profile.user_id,
-            name                 = "Instagram @" + profile.username,
-            access_token         = long.token,
-            access_token_expires_at = now() + long.expires_in,
-        )
-        channel_repo.create(channel)
+    channel, created = channel_repo.upsert_by_external_id(
+        external_id             = profile.user_id,
+        owner_user_id           = user_id,
+        name                    = "Instagram @" + profile.username,
+        access_token            = long.token,
+        access_token_expires_at = now() + long.expires_in,
+    )
 
-    enable_webhook_subscription(channel)  # see <a href="#s5-2">§5.2</a>
+    try:
+        enable_webhook_subscription(channel)        # see <a href="#s5-2">§5.2</a>
+    except SubscribeFailed as e:
+        if created:
+            channel_repo.hard_delete(channel.id)    # physical, not soft — see below
+            raise
+        return redirect(app.settings_url, warning=f"connected, but not subscribed: {e}")
+
     return redirect(app.settings_url)</code></pre>
-        <p>The idempotent upsert by <samp>external_id</samp> is important: a user reconnecting the same Instagram account should refresh their channel's token in place, not create a duplicate.</p>
+        <p>Three things in that handler are less obvious than they look.</p>
+        <p><strong>The upsert is keyed on <samp>external_id</samp>, and it reports whether it inserted.</strong> A user reconnecting the same Instagram account should refresh their channel's token in place, not create a duplicate. And the rollback below must branch on what the <em>statement</em> did, never on a <samp>SELECT</samp> you ran beforehand: a concurrent login inserting the row between your read and your write would otherwise have you hard-delete a live channel and its entire history.</p>
+        <p><strong>A failed subscription rolls a newly created channel back <em>physically</em>.</strong> The row is milliseconds old so nothing can reference it yet — and the unique index on the account identity has no <samp>deleted_at</samp> filter, so a soft delete would occupy that Instagram account forever, with no way to connect it again.</p>
+        <p><strong>An <em>existing</em> channel keeps its row.</strong> The new token is strictly better than the one it replaced, so deleting anything here would be pure loss. The honest end state is "connected, not subscribed" — report it in those words and give the operator something to press.</p>
+        <p class="notice"><strong>A "Reconnect" button must refuse a different account, and cannot always tell.</strong> If a login started from an existing channel comes back with a different <samp>external_id</samp>, write nothing: a channel owns its chats and its message history, and its identity cannot be swapped underneath them. But name both ids in the error, because there are two ways to arrive here and they look identical from the inside. One is somebody authorising the wrong account. The other is the <em>same</em> Instagram account arriving under a new id because the Meta app changed — the id is app-scoped, so it is scoped to the app you have now. The second case is not a mistake; it is a new channel, and the operator needs to be told that rather than left to conclude the button is broken.</p>
+        <p>Nothing is written before the token exchange succeeds, which is what keeps this tractable: the only dangerous window is between the insert and the subscribe. Close it. A crash in there commits the row with nothing left to roll it back, and the account's identity is then occupied by a channel that never worked. Mark the channel provisional until the subscribe returns — a <samp>subscribed_at</samp> column, plus a panel that offers to finish or discard provisional channels — or reconcile on startup. Either works; leaving it open does not.</p>
     </article>
     <article id="s5">
         <h2><span class="accent">##</span> 5. Subscribing to webhooks</h2>
@@ -217,18 +234,75 @@ client_id=&lt;IG_APP_ID&gt;
         <p>This GET fires <strong>once per webhook URL change</strong> to prove you own the URL. Successful response means Meta will start delivering POSTs to your URL. The verify token's job is now done. It is never used again.</p>
         <h3 id="s5-2"><span class="accent">###</span> 5.2 Per-account field subscription (one time per channel, POST)</h3>
         <p>Saving the webhook URL gives Meta somewhere to send events. It does <strong>not</strong> yet tell Meta <em>which events</em> to send for <em>which account</em>. Right after the OAuth callback persists the new channel, call:</p>
-        <pre><code data-lang="http">POST https://graph.instagram.com/v25.0/me/subscribed_apps
+        <pre><code data-lang="http">POST https://graph.instagram.com/v26.0/me/subscribed_apps
      ?access_token=&lt;channel-access-token&gt;
-     &amp;subscribed_fields=messages,message_edit</code></pre>
+     &amp;subscribed_fields=messages,message_edit,message_reactions,messaging_seen</code></pre>
         <p>Response:</p>
         <pre><code data-lang="json">{ "success": true }</code></pre>
-        <p>Without this call, the dashboard webhook is wired but no events flow for the connected account. With it, Meta starts streaming <samp>messages</samp> and <samp>message_edit</samp> events for that account to the URL you registered.</p>
-        <p>Other available fields exist (<samp>message_reactions</samp>, <samp>message_postbacks</samp>, …). Adding them is a code change in your handler, not a config tweak — your handler must understand the new payload shape.</p>
-        <h3 id="s5-3"><span class="accent">###</span> 5.3 Unsubscribing</h3>
+        <p>Check that body, not just the status code — a <samp>200</samp> can carry <samp>{"success": false}</samp>. See <a href="#s7-6">§7.6</a>.</p>
+        <p>Without this call, the dashboard webhook is wired but no events flow for the connected account. With it, Meta starts streaming events for that account to the URL you registered.</p>
+        <p>The field name and the key it produces inside <samp>changes[].value</samp> are not the same word, which is worth a table:</p>
+        <table>
+            <thead>
+                <tr><th>Subscribed field</th><th>Key in <samp>value</samp></th></tr>
+            </thead>
+            <tbody>
+                <tr><td><samp>messages</samp></td><td><samp>message</samp></td></tr>
+                <tr><td><samp>message_edit</samp></td><td><samp>message_edit</samp></td></tr>
+                <tr><td><samp>message_reactions</samp></td><td><samp>reaction</samp></td></tr>
+                <tr><td><samp>messaging_seen</samp></td><td><samp>read</samp></td></tr>
+            </tbody>
+        </table>
+        <p class="notice"><strong>The field is <samp>messaging_seen</samp>, not <samp>message_reads</samp>.</strong> <samp>message_reads</samp> is a Facebook Page field and does not exist on the <samp>instagram</samp> object. It reads like the obvious sibling of <samp>message_edit</samp>, it is not one, and a single unrecognised name makes Meta reject the <em>whole</em> subscribe call — taking the three good fields down with it. Do not "correct" <samp>messaging_seen</samp> to it.</p>
+        <p>Other fields exist (<samp>message_postbacks</samp>, …). Subscribe only to what your handler can actually interpret: an event shape nobody handles is worse than an event you never receive, because it looks like the integration is working.</p>
+        <h3 id="s5-3"><span class="accent">###</span> 5.3 Subscribing replaces the set, and one bad name fails everything</h3>
+        <p>Two properties of this call that the docs do not spell out, and that interact badly.</p>
+        <p><strong>It replaces the field set, it does not add to it.</strong> Verified against the live API: subscribe four fields, then subscribe two, then read the subscription back — exactly two. So every call must carry the complete list you want, never a delta.</p>
+        <p><strong>A single unrecognised field name makes Meta reject the whole call.</strong> Not the bad name — the call. Three good fields and one typo leave the account subscribed to nothing, and the error says the list was rejected without saying which name was at fault.</p>
+        <p>On the create path that combination is fatal: this call is what makes events flow at all, so a wrong guess makes channel creation impossible. The recovery is to find the bad names by elimination:</p>
+        <pre><code data-lang="python">def subscribe_fields(token, wanted):
+    if subscribe(token, ",".join(wanted)):
+        return wanted
+
+    accepted = [f for f in wanted if subscribe(token, f)]     # probe one at a time
+    if not accepted:
+        raise SubscribeFailed(wanted)
+
+    log.warn("instagram rejected fields", rejected=set(wanted) - set(accepted))
+    subscribe(token, ",".join(accepted))                      # &lt;-- not optional
+    return accepted</code></pre>
+        <p>That last call is the line people drop. The probe loop ends having sent a <em>single</em> field, and because the semantics are replace, stopping there leaves exactly one field subscribed — whichever you happened to try last. Re-sending the survivors as one list is correct under either reading of the semantics, which is the other reason to do it: you do not have to be sure you got the semantics right.</p>
+        <h3 id="s5-4"><span class="accent">###</span> 5.4 Unsubscribing</h3>
         <p>When a user disconnects the channel, do the inverse:</p>
-        <pre><code data-lang="http">DELETE https://graph.instagram.com/v25.0/me/subscribed_apps
+        <pre><code data-lang="http">DELETE https://graph.instagram.com/v26.0/me/subscribed_apps
        ?access_token=&lt;channel-access-token&gt;</code></pre>
         <p>Response: <samp>{"success": true}</samp>. Then delete the local channel row, which also removes the stored access token.</p>
+        <h3 id="s5-5"><span class="accent">###</span> 5.5 When the user disconnects you</h3>
+        <p><a href="#s5-4">§5.4</a> is you letting go of an account. This is the account letting go of you, and Meta requires you to handle it: both callbacks below are checked at App Review, so without them you do not ship at all.</p>
+        <p>Both arrive as a <samp>POST</samp> carrying a single form field, <samp>signed_request</samp>, shaped <samp>&lt;signature&gt;.&lt;payload&gt;</samp> with both halves base64url. Verifying it has exactly one trap:</p>
+        <pre><code data-lang="python">signature_b64, payload_b64 = signed_request.split(".", 1)
+
+expected = hmac_sha256(app_secret, payload_b64.encode())   # the ENCODED string
+if not constant_time_equal(expected, base64url_decode(signature_b64)):
+    raise BadRequest("invalid signed request signature")
+
+payload = json.loads(base64url_decode(payload_b64))
+user_id = payload["user_id"]                               # the IG-User-ID</code></pre>
+        <p>The HMAC covers the <strong>still-encoded</strong> payload string, not the JSON you get after decoding it. Decode first and every signature fails, with nothing in the failure to tell you why. And note the key: this is the App Secret again, doing a third job on top of the two in <a href="#s3">§3</a>.</p>
+        <h4><span class="accent">####</span> Deauthorize</h4>
+        <p>Fires when somebody removes your app in their Instagram settings. The token you are holding is dead as of that moment. Find the channel by <samp>user_id</samp>, blank the credential, and take the channel out of service so nothing keeps trying to use it. This is not a deletion request and should not be treated as one — the conversation history stays; what has ended is your access.</p>
+        <p>Skip this callback and the channel stays live holding a token that no longer works, every send fails with a <samp>190</samp>, and nobody can explain why the messages stopped.</p>
+        <h4><span class="accent">####</span> Data deletion</h4>
+        <p>This one <em>is</em> a deletion request. Parse the same way, then remove the account's data — the channel, its chats, the messages in them, stored attachments, the client records that only existed because of it — and blank the credentials. Then answer with where the requester can check up on it:</p>
+        <pre><code data-lang="json">{ "url": "https://your-app.example.com/instagram/data-deletion/status?code=178414...",
+  "confirmation_code": "178414..." }</code></pre>
+        <p>Then serve that status URL — <samp>GET …?code=</samp> — reporting whether the deletion happened. Define "happened" precisely, because three states have to be distinguishable and only two of them are obvious:</p>
+        <ul>
+            <li><strong>Never existed</strong> — nothing under that id, ever. Answer <samp>404</samp>: "no" and "there was never anything here" are different answers, and the requester is entitled to both.</li>
+            <li><strong>Deleted</strong> — the data is gone <em>and</em> the credentials are blank. Both, not either.</li>
+            <li><strong>Not deleted</strong> — anything else, including "in progress".</li>
+        </ul>
+        <p>That second condition is what makes the middle state mean anything. A record marked gone while a working access token still sits beside it is not deleted, whatever the flag says — and that is precisely the state an auditor will ask you about.</p>
         <p class="notice"><strong>End-of-section reminder.</strong> From here on, every webhook delivery is a <strong>POST</strong> with an <samp>X-Hub-Signature-256</samp> header. That signature is HMAC-SHA256 of the raw body keyed by the <strong>App Secret</strong> — <em>not</em> the verify token. <a href="#s6-1">Section 6.1</a> shows the verification.</p>
     </article>
     <article id="s6">
@@ -253,51 +327,60 @@ client_id=&lt;IG_APP_ID&gt;
         <h3 id="s6-2"><span class="accent">###</span> 6.2 Acknowledge fast</h3>
         <p>Meta requires a <samp>200</samp> response within a few seconds. Beyond that, it retries with backoff and may eventually disable the subscription. So your handler does the minimum:</p>
         <pre><code data-lang="python">def webhook_post(request):
-    if not verify_signature(request.raw_body, request.headers["X-Hub-Signature-256"]):
+    if not verify_signature(request.raw_body, request.headers.get("X-Hub-Signature-256")):
         return Response(status=403)
     inbound_queue.publish(request.raw_body)        # or the parsed payload
     return Response(status=200)</code></pre>
         <p>All real work — DB writes, attachment downloads, fan-out to UI sockets — happens in a queue consumer, asynchronously.</p>
         <h3 id="s6-3"><span class="accent">###</span> 6.3 The payload</h3>
-        <p>A typical inbound payload looks like this (one event; entries may bundle several):</p>
+        <p>A typical inbound payload looks like this (one event; an entry may bundle several):</p>
         <pre><code data-lang="json">{
   "object": "instagram",
   "entry": [
     {
-      "id": "178414...",          // your IG-User-ID — selects the channel
-      "time": 1712948123,
-      "messaging": [
+      "id": "178414...",            // your IG-User-ID — selects the channel
+      "time": 1773347860136,
+      "changes": [
         {
-          "sender":    { "id": "98123..." },   // IGSID of the end user
-          "recipient": { "id": "178414..." },  // your IG-User-ID
-          "timestamp": 1712948120000,
-          "message": {
-            "mid":     "aWdfZGl...",
-            "text":    "Hi, do you ship to Berlin?",
-            "is_echo": false,
-            "attachments": [
-              { "type": "image",
-                "payload": { "url": "https://lookaside.fbsbx.com/..." } }
-            ]
+          "field": "messages",      // the subscribed field that produced this
+          "value": {
+            "sender":    { "id": "98123..." },   // IGSID of the end user
+            "recipient": { "id": "178414..." },  // your IG-User-ID
+            "timestamp": "1712948120",
+            "message": {
+              "mid":     "aWdfZGl...",
+              "text":    "Hi, do you ship to Berlin?",
+              "is_echo": false,
+              "attachments": [
+                { "type": "image",
+                  "payload": { "url": "https://lookaside.fbsbx.com/..." } }
+              ]
+            }
           }
         }
       ]
     }
   ]
 }</code></pre>
+        <p>Every event is a <samp>{field, value}</samp> pair under <samp>entry[].changes[]</samp>. <samp>field</samp> names the subscribed field that produced it; <samp>value</samp> is the event itself, and its shape is the same whichever field delivered it.</p>
+        <p class="notice"><strong><samp>timestamp</samp> is a string, not a number.</strong> Type it strictly as an integer and deserialisation fails for the <em>whole</em> payload, taking every event batched alongside it down with it. Nothing routes on the timestamp anyway — parse it leniently or not at all.</p>
         <p>Field-by-field:</p>
         <ul>
-            <li><samp>entry[].id</samp> — the IG-User-ID of <em>your</em> connected account that received the message. Use this to look up which channel the event belongs to. This matters because one app can serve many connected accounts.</li>
-            <li><samp>messaging[].sender.id</samp> — the <strong>IGSID</strong> (Instagram-Scoped ID) of the end user who sent the message. This is the recipient ID you use when replying. (Unlike older Page-mediated Messenger flows there is no separate PSID lookup; the IDs are symmetric.)</li>
-            <li><samp>messaging[].message.mid</samp> — Meta's globally-unique message id. Store it as the message's external id; you use it for deduplication and to find the message later when an edit event arrives.</li>
-            <li><samp>messaging[].message.text</samp> — the text body, optional.</li>
-            <li><samp>messaging[].message.attachments[]</samp> — each has a <samp>type</samp> (one of <samp>image</samp>, <samp>video</samp>, <samp>audio</samp>, <samp>file</samp>) and a <samp>payload.url</samp> pointing to the media on Meta's CDN.</li>
-            <li><samp>messaging[].message.is_echo</samp> — <samp>true</samp> when the event is a copy of an outbound message your <em>own</em> app just sent; suppress these or you will store every reply twice.</li>
+            <li><samp>entry[].id</samp> — the IG-User-ID of <em>your</em> connected account. It also appears on every event inside the entry; <a href="#s6-4">§6.4</a> covers which of the two to route on. Either way you need it, because one app can serve many connected accounts.</li>
+            <li><samp>changes[].field</samp> — the subscribed field that produced the event: <samp>messages</samp>, <samp>message_edit</samp>, <samp>message_reactions</samp>, <samp>messaging_seen</samp>.</li>
+            <li><samp>value.sender.id</samp> — the <strong>IGSID</strong> (Instagram-Scoped ID) of the end user who sent the message. This is the recipient ID you use when replying. (Unlike older Page-mediated Messenger flows there is no separate PSID lookup; the IDs are symmetric.)</li>
+            <li><samp>value.message.mid</samp> — Meta's globally-unique message id. Store it as the message's external id; you use it for deduplication and to find the message later when an edit event arrives.</li>
+            <li><samp>value.message.text</samp> — the text body, optional.</li>
+            <li><samp>value.message.attachments[]</samp> — each has a <samp>type</samp> (one of <samp>image</samp>, <samp>video</samp>, <samp>audio</samp>, <samp>file</samp>) and a <samp>payload.url</samp> pointing to the media on Meta's CDN.</li>
+            <li><samp>value.message.is_echo</samp> — <samp>true</samp> when the event is a copy of a message the <em>account itself</em> sent. Do not drop these — see <a href="#s6-9">§6.9</a>.</li>
         </ul>
         <h3 id="s6-4"><span class="accent">###</span> 6.4 Routing to a channel</h3>
-        <pre><code data-lang="python">def find_channel(payload):
-    entry = payload["entry"][0]                # one entry per event
-    return channel_repo.find_by_external_id(entry["id"])</code></pre>
+        <p>Routing is per <em>entry</em>, not per payload:</p>
+        <pre><code data-lang="python">def find_channel(ev):
+    account, _customer = sides(ev)          # see §6.9
+    return channel_repo.find_by_external_id(account["id"])</code></pre>
+        <p>The entry names the account, and so does every event inside it — <samp>value.recipient.id</samp> on an inbound message, <samp>value.sender.id</samp> on an echo. They agree, so either would work. Prefer the event: you have to derive the <samp>(account, customer)</samp> pair from it anyway to know which side of the conversation the message is on (<a href="#s6-9">§6.9</a>), and routing off that same pair means the channel you looked up can never disagree with the side you decided on.</p>
+        <p>Never index <samp>payload["entry"][0]</samp>. A payload may carry several entries and an entry several changes; Meta gives you no guarantee about how it batches them, and a hardcoded index drops everything after the first — silently, with a 200 going back on the wire.</p>
         <p>If <samp>find_by_external_id</samp> returns <samp>None</samp>, log and drop. The webhook is either misrouted (Meta delivering events for an account you no longer connect to) or stale (a channel was deleted but Meta hasn't caught up).</p>
         <h3 id="s6-5"><span class="accent">###</span> 6.5 Mapping sender → client</h3>
         <p>End users are clients in your domain. Maintain a lookup table keyed by the IGSID, scoped to the channel that received the event:</p>
@@ -309,27 +392,49 @@ client_id=&lt;IG_APP_ID&gt;
     client = client_repo.create(name=profile.name or profile.username)
     client_external_repo.create(channel.id, igsid, profile.username, profile.name, client_id=client.id)
     return client</code></pre>
-        <p>The <samp>fetch_profile</samp> call hits <samp>GET /v25.0/&lt;igsid&gt;?fields=username,name&amp;access_token=&lt;token&gt;</samp> and returns the public username and display name. Cache the result on the <samp>client_external</samp> row so subsequent messages from the same person are a cheap DB lookup.</p>
+        <p>The <samp>fetch_profile</samp> call hits <samp>GET /v26.0/&lt;igsid&gt;?fields=username,name&amp;access_token=&lt;token&gt;</samp> and returns the public username and display name. Cache the result on the <samp>client_external</samp> row so subsequent messages from the same person are a cheap DB lookup.</p>
         <h3 id="s6-6"><span class="accent">###</span> 6.6 Persisting and dispatching</h3>
         <p>The full inbound consumer:</p>
-        <pre><code data-lang="python">def inbound_consumer(payload):
+        <pre><code data-lang="python">def classify(ev):
+    """Which kind of event is this? Decided by the shape of `value`."""
+    for kind in ("message", "message_edit", "read", "reaction"):
+        if kind in ev:
+            return kind
+    return None
+
+def inbound_consumer(payload):
     for entry in payload["entry"]:
-        channel = channel_repo.find_by_external_id(entry["id"])
-        if channel is None:
-            continue
-        for ev in entry["messaging"]:
-            msg = ev.get("message") or {}
-            edit = ev.get("message_edit")
-            if msg.get("is_echo"):
+        for change in entry["changes"]:
+            ev   = change["value"]
+            kind = classify(ev)
+            if kind is None:
+                log.warn("uninterpretable instagram change",
+                         entry_id=entry["id"], field=change["field"])
                 continue
-            client = upsert_client(channel, ev["sender"]["id"])
+
+            account, customer = sides(ev)          # §6.9
+            channel = channel_repo.find_by_external_id(account["id"])
+            if channel is None:
+                continue
+
+            if kind == "message" and ev["message"].get("is_echo"):
+                persist_echo(channel, ev)          # §6.9 — do not drop these
+                continue
+
+            client = upsert_client(channel, customer["id"])
             chat   = chat_repo.get_or_create(channel.id, client.id)
-            if edit:
-                update_message_text(chat, edit["mid"], edit["text"])
-            else:
-                persist_inbound_message(chat, client, msg)
-                for att in msg.get("attachments", []):
-                    download_queue.publish(chat.id, msg["mid"], att["type"], att["payload"]["url"])
+
+            match kind:
+                case "message":
+                    persist_inbound_message(chat, client, ev["message"])
+                    enqueue_attachments(chat, ev["message"])          # §6.7
+                case "message_edit":
+                    update_message_text(chat, ev["message_edit"]["mid"],
+                                              ev["message_edit"]["text"])
+                case "read":
+                    mark_read(chat, ev["read"].get("mid"))               # §6.11
+                case "reaction":
+                    apply_reaction(chat, ev["reaction"])              # §6.10
 
 def persist_inbound_message(chat, client, msg):
     chat_message_repo.create(
@@ -339,23 +444,53 @@ def persist_inbound_message(chat, client, msg):
         external_id = msg["mid"],          # for dedup + edit lookup
     )
     realtime.publish_to_operator_ui(chat.id, msg)</code></pre>
-        <p>Two separate queues are visible in the consumer: the <em>inbound queue</em> the webhook handler published to, and the <em>download queue</em> the consumer publishes to.</p>
+        <p>Two things about that dispatch are deliberate.</p>
+        <p><strong>The kind is decided by the shape of <samp>value</samp>, never by <samp>changes[].field</samp>.</strong> The field name is a label; the payload is the fact. Gate on the name and you get to pick your bug: an unlisted field drops real events on the floor, or an unrecognised one becomes an inbox entry made out of nothing. A change whose <samp>value</samp> carries none of <samp>message</samp>, <samp>message_edit</samp>, <samp>read</samp> or <samp>reaction</samp> is something else entirely — and it must not turn into a message.</p>
+        <p><strong>Unrecognised is logged, not silently skipped.</strong> Log the <samp>field</samp> and the entry id and nothing else, because the values carry message text. A bare <samp>continue</samp> on an unhandled shape is indistinguishable from Meta having sent nothing at all, and that is the hardest state to debug anywhere in this integration.</p>
+        <p>Two queues are in play here: the <em>inbound queue</em> the webhook handler published to (<a href="#s6-2">§6.2</a>), and the <em>download queue</em> that <samp>enqueue_attachments</samp> feeds (<a href="#s6-7">§6.7</a>).</p>
         <h3 id="s6-7"><span class="accent">###</span> 6.7 Attachments</h3>
-        <p>Meta gives you a URL per attachment, not an attachment ID, and <strong>the URL is short-lived</strong>. The signed query string on <samp>lookaside.fbsbx.com</samp> URLs expires in minutes, not hours. Consequences:</p>
-        <ul>
-            <li>Download the bytes promptly — within the same job, on a separate worker.</li>
-            <li>Store them in your own object storage (S3, a CDN-fronted bucket, …).</li>
-            <li>Persist a <em>local</em> media reference on the message, not the Meta URL.</li>
-        </ul>
-        <p>If you defer the download until the operator scrolls into view, you will ship a product where last-week's attachments are dead links.</p>
-        <p>The downloader is a small worker that:</p>
+        <p>Meta gives you a URL per attachment, not an attachment ID, and <strong>the URL is short-lived</strong>. The signed query string on <samp>lookaside.fbsbx.com</samp> URLs expires in minutes, not hours. Store the event and move on, and what you have stored is a link that was already dying when it arrived — which looks fine for the first hour and is a wall of broken thumbnails by the next morning.</p>
+        <p>So the bytes must be fetched promptly, and the fetch must not sit on the webhook's critical path. Split it in two.</p>
+        <h4><span class="accent">####</span> On the ingest path</h4>
+        <p>Map the attachment's <samp>type</samp> onto whatever kinds your domain has. This is the whole set:</p>
+        <table>
+            <thead>
+                <tr><th>Instagram <samp>type</samp></th><th>What it is</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><samp>image</samp></td><td>photo</td></tr>
+                <tr><td><samp>video</samp></td><td>video</td></tr>
+                <tr><td><samp>audio</samp></td><td>voice message</td></tr>
+                <tr><td><samp>file</samp></td><td>document</td></tr>
+            </tbody>
+        </table>
+        <p>Anything else is dropped rather than guessed at. Then create the attachment row <em>before</em> the bytes exist, persist the message referencing it, publish to the UI, and only then enqueue the download:</p>
+        <pre><code data-lang="python">for att in msg.get("attachments", []):
+    kind = ATTACHMENT_KINDS.get(att["type"])
+    if kind is None:
+        continue                                   # unknown type — drop, don't guess
+    record = attachment_repo.create(chat.id, kind, status="pending")
+    pending.append((record.id, att["payload"]["url"]))
+
+message = persist_inbound_message(chat, client, msg, attachments=pending_ids)
+realtime.publish_to_operator_ui(chat.id, message)  # text is visible NOW
+
+for attachment_id, url in pending:
+    download_queue.publish(chat.id, message.id, attachment_id, url)</code></pre>
+        <p>The row starts <samp>pending</samp>, with no file behind it and the metadata it cannot know yet — dimensions, duration — left at zero. That ordering is the whole point: the customer's text reaches the operator at webhook speed with the attachment rendering as a placeholder, and nothing about the message is held hostage to a CDN fetch.</p>
+        <h4><span class="accent">####</span> In the downloader</h4>
         <ol>
-            <li>Receives <samp>(chat_id, message_id, attachment_type, download_url)</samp>.</li>
-            <li>GETs the URL.</li>
-            <li>Uploads the bytes to your storage.</li>
-            <li>Writes the resulting URL onto the message attachment record.</li>
-            <li>Notifies the UI to refresh.</li>
+            <li>Receive <samp>(chat_id, message_id, attachment_id, download_url)</samp>.</li>
+            <li>Check the URL has a scheme and a host before handing it to an HTTP client. It came from outside.</li>
+            <li>GET it straight to a temp file, with a generous timeout — sixty seconds for the body and thirty to connect is not paranoia, some of these are videos.</li>
+            <li><strong>Sniff the MIME type from the downloaded bytes</strong> and derive the extension from that. The <samp>lookaside</samp> URL carries no meaningful extension, and its <samp>Content-Type</samp> is not something to bet a filename on.</li>
+            <li>Move the bytes into your own storage, set <samp>status = downloaded</samp>, record the real filename.</li>
+            <li>On any failure set <samp>status = failed</samp> and stop. A dead end beats a row that claims to have a file it does not have.</li>
+            <li>Either way, publish a "message updated" event so open UIs re-render that one bubble.</li>
         </ol>
+        <p>The three-state ladder — <samp>pending</samp> → <samp>downloaded</samp> | <samp>failed</samp> — is what lets the UI tell "still coming" apart from "this one is never arriving". Those are very different things to show a person.</p>
+        <h4><span class="accent">####</span> Serving them back</h4>
+        <p>Never hand out storage paths. Generate a <strong>signed, expiring URL</strong> per attachment and cache it for its own lifetime, so re-rendering a thread does not re-sign every image in it. The same signed URL is what you hand to Meta when sending an attachment the other way — <a href="#s7-3">§7.3</a>.</p>
         <h3 id="s6-8"><span class="accent">###</span> 6.8 Edits</h3>
         <p><samp>message_edit</samp> events arrive with the same <samp>mid</samp> as the original. Look up the existing message by <samp>external_id</samp>, replace its text, and emit a domain event so live UIs refresh:</p>
         <pre><code data-lang="python">def update_message_text(chat, mid, new_text):
@@ -366,11 +501,50 @@ def persist_inbound_message(chat, client, msg):
     existing.text = new_text
     chat_message_repo.save(existing)
     realtime.publish_message_edit(chat.id, existing.id, new_text)</code></pre>
+        <h3 id="s6-9"><span class="accent">###</span> 6.9 Echoes — store them, don't suppress them</h3>
+        <p>An echo is an event with <samp>message.is_echo: true</samp>: a copy of a message the <em>account</em> sent. The obvious reading is "that's my own reply coming back, drop it" — and that reading throws away data you cannot get any other way.</p>
+        <p>Echoes cover two different things:</p>
+        <ul>
+            <li>A reply your app sent through the API. You already have this one.</li>
+            <li><strong>A message the account owner typed in the Instagram app itself.</strong> Your app never saw it go out, and no other event will ever tell you about it. Drop echoes and your operator opens a thread that reads as though the customer was ignored, while the owner is answering them on their phone.</li>
+        </ul>
+        <p>An echo is the <em>mirror</em> of an inbound event: <samp>sender</samp> is the account and <samp>recipient</samp> is the customer. Routed the normal way it matches no channel — which is exactly how these come to be dropped by accident rather than by decision. Swap the two before routing:</p>
+        <pre><code data-lang="python">def sides(ev):
+    """Returns (account, customer). An echo has them the other way round."""
+    if (ev.get("message") or {}).get("is_echo", False):
+        return ev["sender"], ev["recipient"]
+    return ev["recipient"], ev["sender"]</code></pre>
+        <p>Store it on the business side of the conversation with <strong>no author</strong> — nobody in your operators table typed it. And the duplicate you were worried about is not a problem: an echo of a reply your app sent carries the same <samp>mid</samp> you already stored, so the unique index from <a href="#s9-1">§9.1</a> absorbs it. Deduplication handles this, not a <samp>continue</samp>.</p>
+        <h3 id="s6-10"><span class="accent">###</span> 6.10 Reactions</h3>
+        <p>A <samp>message_reactions</samp> subscription delivers events whose <samp>value</samp> carries a <samp>reaction</samp> instead of a <samp>message</samp>: the <samp>mid</samp> that was reacted to, an <samp>action</samp> of <samp>react</samp> or <samp>unreact</samp>, a <samp>reaction</samp> name and the <samp>emoji</samp> itself.</p>
+        <pre><code data-lang="json">"value": {
+  "sender":    { "id": "98123..." },
+  "recipient": { "id": "178414..." },
+  "reaction":  { "mid": "aWdfZGl...", "action": "react",
+                 "reaction": "love", "emoji": "❤" }
+}</code></pre>
+        <p>Key your storage on <samp>(message_id, sender)</samp>, not on the reaction itself: <samp>unreact</samp> then deletes the row, and someone switching from hearts to tears replaces theirs rather than accumulating both. Getting that key wrong produces a bubble wearing every emoji its author ever tried.</p>
+        <p>Outbound reactions, when you want them, go on the same <samp>/me/messages</samp> endpoint as a send.</p>
+        <h3 id="s6-11"><span class="accent">###</span> 6.11 Read receipts</h3>
+        <p>A <samp>messaging_seen</samp> subscription delivers events whose <samp>value</samp> carries a <samp>read</samp>:</p>
+        <pre><code data-lang="json">"value": {
+  "sender":    { "id": "98123..." },
+  "recipient": { "id": "178414..." },
+  "read":      { "mid": "aWdfZGl..." }
+}</code></pre>
+        <p>It names one message. It <em>means</em> every message up to that one.</p>
+        <p><strong>Mark the anchor and everything older</strong> in that chat — <samp>created_at &lt;=</samp>, not <samp>&lt;</samp> — excluding the reader's own. Marking only the named message leaves a thread in which message five is read and one through four are not: a state that cannot occur, and one your UI should never have to render.</p>
+        <p><strong>Do not put an upper time bound on the range.</strong> The temptation is to bracket it with the event's timestamp. Resist it: your <samp>created_at</samp> and Meta's <samp>timestamp</samp> are different clocks, and a read means "everything up to here" whatever either of them thinks the time is.</p>
+        <p><strong><samp>mid</samp> is optional, and an anchor you cannot find is routine.</strong> Type the field as required and a single receipt without one fails deserialisation for the entire payload, taking every event batched alongside it down too. And a <samp>mid</samp> that resolves to nothing is normal rather than exceptional: the receipt may have overtaken the id adoption of <a href="#s7-4">§7.4</a>, or the message may have been sent from the Instagram app and never had a row here at all. Fall back to marking everything the other side has unread in that chat.</p>
+        <h4><span class="accent">####</span> The status ladder</h4>
+        <p><samp>new</samp> → <samp>delivered</samp> → <samp>read</samp>, plus the dead end <samp>failed</samp>. One tick in the panel means the provider took the message; two mean the customer read it.</p>
+        <p>Guard <em>both</em> transitions out of <samp>new</samp> on the current status, because they race. A customer with the thread open can read a reply before its delivery task has finished writing anything down — and an unconditional <samp>delivered</samp> will then overwrite a <samp>read</samp> that already landed, making the second tick vanish in front of the operator. Which is why the read query matches <samp>status IN ('new', 'delivered')</samp> and never <samp>= 'new'</samp>.</p>
+        <p>The other direction — telling Instagram that <em>you</em> have read something — is <a href="#s7-8">§7.8</a>.</p>
     </article>
     <article id="s7">
         <h2><span class="accent">##</span> 7. Sending messages</h2>
         <h3 id="s7-1"><span class="accent">###</span> 7.1 Endpoint</h3>
-        <pre><code data-lang="http">POST https://graph.instagram.com/v25.0/me/messages?access_token=&lt;channel-access-token&gt;
+        <pre><code data-lang="http">POST https://graph.instagram.com/v26.0/me/messages?access_token=&lt;channel-access-token&gt;
 Content-Type: application/json</code></pre>
         <h3 id="s7-2"><span class="accent">###</span> 7.2 Body — text</h3>
         <pre><code data-lang="json">{ "recipient": { "id": "&lt;IGSID&gt;" },
@@ -381,18 +555,33 @@ Content-Type: application/json</code></pre>
   "message": {
     "attachments": [
       { "type": "image",
-        "payload": { "url": "https://your-cdn.example.com/abc.jpg" } }
+        "payload": { "url": "https://your-app.example.com/attachments/abc?signature=…" } }
     ]
   } }</code></pre>
-        <p><samp>type</samp> is one of <samp>image</samp>, <samp>video</samp>, <samp>audio</samp>, <samp>file</samp>. <samp>payload.url</samp> must be a publicly reachable HTTPS URL — Meta's servers fetch it during the API call. There is <strong>no</strong> two-step "create attachment id, then send" upload, unlike some other Meta-adjacent APIs (and unlike Telegram, WhatsApp Business, …).</p>
+        <p><samp>type</samp> is one of <samp>image</samp>, <samp>video</samp>, <samp>audio</samp>, <samp>file</samp> — the same four as inbound (<a href="#s6-7">§6.7</a>), so one mapping serves both directions.</p>
+        <p class="notice"><strong>It is <samp>attachments</samp>, an array.</strong> The Messenger documentation shows a singular <samp>message.attachment</samp> object, and that is not what this endpoint takes. The kind of difference you find by capturing traffic rather than by reading.</p>
+        <p><samp>payload.url</samp> must be fetchable <em>by Meta's servers</em>, during the API call. There is no two-step "create an attachment id, then send it" upload here — unlike Telegram, WhatsApp Business and most Meta-adjacent APIs. Which leaves you needing a URL public enough for Meta and private enough for you:</p>
+        <ul>
+            <li>A <strong>signed URL with an expiry</strong> is the answer, not a public bucket. Storage stays closed; the link works for whoever holds it, for as long as you allow.</li>
+            <li><strong>The expiry has to outlive the fetch.</strong> Meta pulls the bytes while your POST is still in flight, so a TTL measured in seconds is a race you lose intermittently and never reproduce.</li>
+            <li>It must need <strong>no auth header</strong>. Meta will not send one.</li>
+        </ul>
+        <p>A message tag, when you have one, goes at the <strong>top level</strong> of the payload — beside <samp>recipient</samp> and <samp>message</samp>, never inside <samp>message</samp>. The docs will tell you otherwise.</p>
         <h3 id="s7-4"><span class="accent">###</span> 7.4 Response</h3>
         <pre><code data-lang="json">{ "message_id": "aWdfZGl...", "recipient_id": "98123..." }</code></pre>
-        <p>Persist <samp>message_id</samp> as the external id of your outbound message. You will see the same id again moments later in an inbound <samp>is_echo: true</samp> event, which you have already learned to suppress.</p>
+        <p>Persist <samp>message_id</samp> as the external id of your outbound message — but notice <em>when</em> you are able to. The row already exists: you wrote it before the send so the operator's intent would survive a crash (<a href="#s7-5">§7.5</a>), and at that moment Meta's id did not exist. So the row is created under a local id of your own — <samp>operator:&lt;uuid&gt;</samp> — and <strong>adopts</strong> Meta's when the send returns. The same id then arrives once more as an <samp>is_echo: true</samp> event, which the unique index absorbs (<a href="#s6-9">§6.9</a>).</p>
+        <p class="notice"><strong>That leaves a window, and things arrive inside it.</strong> Everything inbound about this message is keyed by Meta's id: the echo, every read receipt, any later edit. Until the adoption lands they all look up an id you have not stored yet and resolve to nothing. Two consequences worth designing for rather than discovering:</p>
+        <ul>
+            <li><strong>Key the adoption on your row's own primary key</strong>, never on the external id you are replacing. You are, by definition, in the state where that external id is wrong.</li>
+            <li><strong>A read receipt that finds no message must not be discarded.</strong> Fall back to marking the chat (<a href="#s6-11">§6.11</a>) — the receipt overtaking the adoption is a normal race, not corruption.</li>
+        </ul>
+        <p>A reply the provider <em>refuses</em> keeps its local id forever: there is no provider id to adopt. Mark it failed and leave it alone.</p>
         <h3 id="s7-5"><span class="accent">###</span> 7.5 The async pipeline</h3>
         <pre>Operator UI
     │
     ▼
-HTTP API:  persist outbound chat_message in state=pending,
+HTTP API:  persist outbound chat_message under a LOCAL external id
+           (operator:&lt;uuid&gt;) in state=pending,
            publish OutboundChatInstagramMessage(chat_message_id) to outbound_queue,
            return 200 to UI
 
@@ -401,47 +590,56 @@ Outbound consumer:
     2. Load chat → channel → access_token
     3. Build payload (text and/or attachments)
     4. POST graph.instagram.com /me/messages
-    5. On success: store returned message_id as external_id,
-                   set chat_message.state = sent
-    6. On failure: classify error (see <a href="#s7-6">§7.6</a>), retry or fail</pre>
+    5. On success: adopt the returned message_id as external_id, keyed on
+                   the row's own id; set chat_message.state = sent
+    6. On failure: classify error (see <a href="#s7-6">§7.6</a>), retry or fail —
+                   the row keeps its local id</pre>
         <p>Two reasons not to call Graph API synchronously from the operator's HTTP request: the Graph API can stall for several seconds (which would freeze the operator's UI), and consumer crashes mid-call should not silently lose a message the operator already pressed Send on. Persisting the outbound message before the API call makes the operator's intent durable.</p>
         <h3 id="s7-6"><span class="accent">###</span> 7.6 Error handling</h3>
-        <p>Meta returns errors in a consistent envelope:</p>
+        <p>A Graph API response needs <strong>three independent checks</strong>. Any one of them on its own lets failures through as success.</p>
+        <ol>
+            <li><strong>An <samp>error</samp> envelope in the body.</strong> Meta reports most failures this way, and it does so <em>alongside</em> a 4xx rather than instead of one — so the body has to be read even when the request failed.</li>
+            <li><strong>An HTTP status of 400 or more.</strong> It can arrive with <em>no</em> envelope. Read the body first, because a 4xx that does carry one has the useful message in it — but never let a bare 4xx fall through. It will die later at deserialization instead, with a message that hides the real cause.</li>
+            <li><strong>On <samp>/me/subscribed_apps</samp>: a body that is not <samp>{"success": true}</samp>.</strong> A <samp>200</samp> carrying <samp>{"success": false}</samp> is a failure and nothing in the HTTP layer says so. Take it for success and you have created a channel that silently receives nothing — the worst failure mode in this article, because every part of it looks connected.</li>
+        </ol>
+        <p>With that settled: Meta reports errors in a consistent envelope.</p>
         <pre><code data-lang="json">{ "error": {
-    "message":  "...",
-    "type":     "OAuthException",
-    "code":     190,
-    "fbtrace_id": "Az..."
+    "message":       "This message is sent outside of allowed window",
+    "type":          "OAuthException",
+    "code":          10,
+    "error_subcode": 2534022,
+    "fbtrace_id":    "Az..."
   } }</code></pre>
-        <p>Classify by <samp>code</samp>:</p>
+        <p><samp>error_subcode</samp> is the field that actually tells you what happened. <samp>code</samp> on its own collapses unrelated failures into one bucket, and the two cases below are the ones that hurt: they are operator-actionable, they look like generic permission errors, and only the subcode separates them. Classify on the pair:</p>
         <ul>
-            <li><strong><samp>190</samp> (OAuthException)</strong> — token expired or revoked. Mark the channel "needs reconnect", stop retrying, surface to whoever owns the connection so they can re-authorise. Do not requeue; retrying will not help.</li>
+            <li><strong><samp>10</samp> + subcode <samp>2534022</samp></strong> — <em>not</em> a scope problem. This is the 24-hour customer-service window having closed (<a href="#s7-7">§7.7</a>). Retrying never helps; only a tagged message is allowed now. Tell the operator that in those words — "permission denied" sends them looking in the wrong place.</li>
+            <li><strong>subcode <samp>2534014</samp></strong> — "Requested user not found". Instagram only knows customers who have messaged <em>this</em> account through <em>your</em> app; an IGSID from anywhere else does not resolve. Do not retry.</li>
+            <li><strong><samp>190</samp> (OAuthException)</strong> — token expired or revoked. Stop retrying — a dead token does not come back — and surface the channel to whoever owns the connection so they can re-authorise. Do not requeue.</li>
+            <li><strong><samp>190</samp> + subcode <samp>33</samp></strong> — a different fault wearing the same code: "this is not a short-lived token". You called <samp>ig_exchange_token</samp> with a token that is already long-lived. Your flow is wrong, the token is fine.</li>
             <li><strong><samp>4</samp>, <samp>17</samp>, <samp>32</samp>, <samp>613</samp> — rate-limit family.</strong> Requeue with exponential backoff. If the response carries an <samp>X-Business-Use-Case-Usage</samp> header, honour the <samp>estimated_time_to_regain_access</samp> value rather than guessing.</li>
-            <li><strong><samp>10</samp>, <samp>200</samp>-family — permission errors.</strong> Usually a missing scope after Meta tightened a policy. Surface and block further sends until the account is re-authorised.</li>
+            <li><strong><samp>200</samp>-family, and <samp>10</samp> <em>without</em> a subcode you recognise</strong> — genuine permission errors. Usually a missing scope after Meta tightened a policy. Surface and block further sends until the account is re-authorised.</li>
             <li><strong><samp>5xx</samp></strong> — transient. Retry with standard backoff; don't escalate.</li>
         </ul>
-        <p>Always log <samp>fbtrace_id</samp>. It is the only thing Meta support will ask for.</p>
+        <p>Always log <samp>fbtrace_id</samp> <strong>and</strong> <samp>error_subcode</samp>. The first is the only thing Meta support will ask for; the second is the only thing that will let you classify the failure a year from now, when the message text has been reworded.</p>
         <h3 id="s7-7"><span class="accent">###</span> 7.7 The 24-hour customer-service window</h3>
         <p>Outside a 24-hour window starting at the user's last inbound message, you can only send a <em>message tag</em> (e.g. <samp>HUMAN_AGENT</samp>). Free-form messages outside the window are rejected by Meta with an error.</p>
-        <p>The integration described here does <em>not</em> enforce this window — outbound sends just go out and Meta returns an error if it's past the window. A production-grade implementation would: track <samp>last_inbound_at</samp> per chat, refuse free-form sends past 24 hours, allow tagged sends with an explicit business reason. Treat this as a known gap to close before launch.</p>
-        <h3 id="s7-8"><span class="accent">###</span> 7.8 What this integration does <em>not</em> do (yet)</h3>
-        <p>So you know what to add:</p>
+        <p><strong>Enforce the window yourself instead of letting Meta enforce it for you.</strong> Track <samp>last_inbound_at</samp> per chat, refuse a free-form send past 24 hours before it leaves your process, and allow a tagged send with an explicit business reason. Leaning on the API to reject the late message costs a round trip, a <samp>failed</samp> row and an operator who has already moved on — and it is the difference between telling them "the window closed at 14:02" and telling them "Instagram said permission denied".</p>
+        <h3 id="s7-8"><span class="accent">###</span> 7.8 Marking a thread seen</h3>
+        <p>The same endpoint as a send, with <samp>sender_action</samp> in place of <samp>message</samp> — so no extra permission is involved:</p>
+        <pre><code data-lang="json">{ "recipient": { "id": "&lt;IGSID&gt;" },
+  "sender_action": "mark_seen" }</code></pre>
+        <p>Two things to know before wiring it to your UI:</p>
         <ul>
-            <li><strong>Typing indicators</strong> (<samp>POST /me/messages</samp> with <samp>sender_action: typing_on|typing_off|mark_seen</samp>).</li>
-            <li><strong>Quick replies</strong> — <samp>message.quick_replies[]</samp> on outbound payloads.</li>
-            <li><strong>Message reactions</strong> — both directions.</li>
-            <li><strong>Read receipts</strong> — both directions.</li>
-            <li><strong>Message tags</strong> — required for the post-24h-window case above.</li>
-            <li><strong>Stories replies</strong> — different inbound payload shape.</li>
+            <li><strong>It marks the whole thread, not a message.</strong> Instagram has no per-message granularity here, so there is nothing of your own read watermark to send along.</li>
+            <li><strong>Send it only when a read actually changed something.</strong> An operator UI typically emits one read event per inbound message it renders; calling Meta on each of those means a Graph API request per message in the visible history, for a thread state that was already correct after the first one.</li>
         </ul>
-        <p>Each is a code change in the handler/sender plus, in some cases, a new subscribed field on the webhook.</p>
     </article>
     <article id="s8">
         <h2><span class="accent">##</span> 8. Refreshing tokens</h2>
         <h3 id="s8-1"><span class="accent">###</span> 8.1 Why</h3>
         <p>Long-lived tokens last about 60 days. When one expires, every interaction breaks: you cannot fetch sender profiles, cannot download attachments, cannot send replies. Refreshing must be automatic and proactive.</p>
         <h3 id="s8-2"><span class="accent">###</span> 8.2 Endpoint</h3>
-        <pre><code data-lang="http">GET https://graph.instagram.com/v25.0/refresh_access_token
+        <pre><code data-lang="http">GET https://graph.instagram.com/v26.0/refresh_access_token
     ?grant_type=ig_refresh_token
     &amp;access_token=&lt;current-long-lived-token&gt;</code></pre>
         <p>Response:</p>
@@ -450,10 +648,10 @@ Outbound consumer:
   "expires_in":   5183944 }</code></pre>
         <p>The new token is again ~60 days out. Replace the stored value and update <samp>access_token_expires_at = now + expires_in</samp>.</p>
         <h3 id="s8-3"><span class="accent">###</span> 8.3 Cron design</h3>
-        <p>Run a job daily. Find every channel where the token is approaching expiry, and refresh:</p>
+        <p>Run the pass <strong>hourly</strong>, not daily. Find every channel where the token is approaching expiry, and refresh:</p>
         <pre><code data-lang="python">REFRESH_THRESHOLD_DAYS = 3
 
-def refresh_tokens_cron():
+def refresh_due_tokens():
     threshold = now() + days(REFRESH_THRESHOLD_DAYS)
     channels = channel_repo.find_where_expires_at_null_or_lte(threshold)
     refreshed, failed = 0, 0
@@ -464,20 +662,26 @@ def refresh_tokens_cron():
             channel.access_token_expires_at = new.expires_at
             channel_repo.save(channel)
             refreshed += 1
-        except OAuthException:
-            channel_repo.mark_needs_reconnect(channel.id)
-            notify_owner(channel)
+        except OAuthException as e:
             failed += 1
+            if channel.access_token_expires_at is None:
+                log.warn("refused; token age unknown, Meta requires 24h",
+                         channel_id=channel.id, error=e)      # normal on day one
+            else:
+                log.error("instagram token refresh failed",
+                          channel_id=channel.id, error=e)
     return refreshed, failed</code></pre>
-        <p>The 3-day buffer absorbs cron failures, deploy windows, and weekends. With a daily cron, every channel gets at least three refresh attempts before it expires.</p>
+        <p>The three-day buffer absorbs failed passes, deploy windows and weekends. Hourly rather than daily is not belt-and-braces: it turns that buffer into about seventy attempts instead of three, and it is the only thing that makes the next rule survivable.</p>
+        <p class="notice"><strong>Meta refuses to refresh a token less than 24 hours old.</strong> A channel that was just connected — or one whose token was pasted in by hand, whose age you therefore do not know — is <em>expected</em> to be turned away on the first few passes. With an hourly pass it succeeds later the same day and nobody has to know. With a daily one you get one attempt every 24 hours and a permanently confusing error in the log. Treat a refusal on a token of unknown age as a warning, not an error: it is the normal first day of that channel's life.</p>
+        <p><strong>Resist adding a <samp>needs_reconnect</samp> column.</strong> It is the obvious thing to reach for and it is a second copy of the truth: the row says "broken" while Meta may already disagree, and now clearing it is your job too. Derive the state instead. A "check connection" endpoint that reads the subscription back and does the expiry arithmetic answers <em>is this channel actually working right now</em>, live, and the panel renders that next to a Reconnect button. A failed pass then has nothing to do but say so in the log.</p>
         <h3 id="s8-3a"><span class="accent">###</span> 8.3a Running it on <mark>Kubernetes</mark></h3>
-        <p>If the app is deployed to Kubernetes, the natural translation of the daily cron is a <samp>CronJob</samp> that runs the same <samp>refresh_tokens_cron()</samp> logic — same threshold, same buffer, same code path. You get k8s-native retry, overlap prevention, and run history without writing any of it.</p>
+        <p>If the app is deployed to Kubernetes, the natural translation of the hourly pass is a <samp>CronJob</samp> that runs the same <samp>refresh_due_tokens()</samp> logic — same threshold, same buffer, same code path. You get k8s-native retry, overlap prevention, and run history without writing any of it.</p>
         <pre><code data-lang="yaml">apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: ig-refresh-tokens
 spec:
-  schedule: "0 3 * * *"           # 03:00 UTC daily
+  schedule: "0 * * * *"           # hourly
   concurrencyPolicy: Forbid       # never let two runs overlap
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -507,7 +711,7 @@ spec:
         <p>A refresh requires the current token to still be valid. If the token has <em>already</em> expired, <samp>refresh_access_token</samp> returns <samp>OAuthException</samp> and you cannot recover automatically — the user must reconnect. Two implications:</p>
         <ul>
             <li>The cron must run more often than the buffer minus the longest plausible outage. Daily with a 3-day buffer tolerates two missed runs.</li>
-            <li>A <samp>190</samp> from <samp>refresh_access_token</samp> is the signal to <em>stop trying</em> and surface the channel to its owner with a "reconnect" button. Don't keep the row's <samp>expires_at</samp> as-is and pretend the token still works.</li>
+            <li>A <samp>190</samp> from <samp>refresh_access_token</samp> is the signal to <em>stop trying</em> — no number of attempts revives a dead token. Leave <samp>expires_at</samp> exactly as it is; do not push it forward to keep the row looking healthy. The connection check is what surfaces the channel to its owner with a Reconnect button.</li>
         </ul>
         <h3 id="s8-5"><span class="accent">###</span> 8.5 Manual trigger</h3>
         <p>Provide a CLI command that runs the same logic on demand:</p>
@@ -519,6 +723,8 @@ spec:
         <h3 id="s9-1"><span class="accent">###</span> 9.1 Idempotency</h3>
         <ul>
             <li><strong>Inbound:</strong> dedupe by <samp>message.mid</samp>. Meta retries delivery on any non-200 response (and sometimes on 200 too). Your inbound writer must be safe to call twice with the same <samp>mid</samp>. A unique index on <samp>(channel_id, external_id)</samp> is the cheapest enforcement.</li>
+            <li><strong>Know what your conflict clause does.</strong> <samp>ON CONFLICT DO NOTHING</samp> is the natural way to write that insert, and it turns a duplicate key into a <em>silently dropped message</em> rather than an error. That is exactly right for a genuine redelivery and exactly wrong for an id collision — and after the fact the two are indistinguishable. Which makes the uniqueness of the id your problem, not the database's.</li>
+            <li><strong>Build external ids in one place, and namespace them.</strong> A Meta <samp>mid</samp> is unique platform-wide and needs nothing added to it. But if your app carries more than one provider, that <samp>mid</samp> shares a column with a Telegram <samp>message_id</samp>, which is unique only inside its chat — so prefix them (<samp>instagram:&lt;mid&gt;</samp>, <samp>telegram:&lt;chat&gt;:&lt;id&gt;</samp>). The invariant to hold is "unique within the channel", and the only way to hold it is one function every caller goes through. Ids are stored: change the format later and you orphan every row already written.</li>
             <li><strong>Outbound:</strong> dedupe by your internal <samp>chat_message.id</samp>. Use it as the request idempotency key in your queue so a consumer crash does not send the same message twice.</li>
         </ul>
         <h3 id="s9-2"><span class="accent">###</span> 9.2 Observability</h3>
@@ -529,7 +735,7 @@ spec:
             <li>Track outbound consumer lag and inbound queue depth as separate dashboards.</li>
         </ul>
         <h3 id="s9-3"><span class="accent">###</span> 9.3 Rate limits</h3>
-        <p>Meta returns <samp>X-Business-Use-Case-Usage</samp> headers on every response with the current account's <samp>call_count</samp>, <samp>total_cputime</samp>, and <samp>estimated_time_to_regain_access</samp>. Record them. When throttled, requeue the failed job with at least the suggested wait.</p>
+        <p>Meta returns <samp>X-Business-Use-Case-Usage</samp> headers alongside Graph API responses, carrying the account's <samp>call_count</samp>, <samp>total_cputime</samp> and <samp>estimated_time_to_regain_access</samp>. Record them whenever they are present. When throttled, requeue the failed job with at least the wait it names.</p>
         <h3 id="s9-4"><span class="accent">###</span> 9.4 Secret hygiene</h3>
         <ul>
             <li>Never log access tokens — they are bearer credentials.</li>
@@ -539,9 +745,18 @@ spec:
         <h3 id="s9-5"><span class="accent">###</span> 9.5 Local development</h3>
         <ul>
             <li>Tunnel the webhook URL with ngrok / Cloudflare Tunnel — Meta needs a publicly reachable HTTPS endpoint.</li>
-            <li>The Meta dashboard's "Test webhook" button replays representative payloads to your URL so you can develop without a real Instagram message.</li>
+            <li>The dashboard's per-field <strong>Test</strong> button sends a fixed sample payload: useful for exercising your parser, not evidence that live delivery works.</li>
             <li>The <samp>/me/subscribed_apps</samp> and <samp>/refresh_access_token</samp> calls are safe to hit repeatedly with the same token; they're effectively idempotent.</li>
         </ul>
+        <h3 id="s9-6"><span class="accent">###</span> 9.6 Retries</h3>
+        <p>Every call to somebody else's API needs an answer to "and if it fails?". The default answer — report it and move on — is what you will find yourself shipping unless you decide otherwise up front, because each individual call looks too small to deserve a policy.</p>
+        <p>Decide once, not five times:</p>
+        <ul>
+            <li><strong>Bounded exponential backoff</strong> for calls that are safe to repeat: profile lookups, subscription reads, token refresh.</li>
+            <li><strong>An outbox</strong> for the ones that are not. A delivery must never be retried without an idempotency key, or the customer gets the message twice — which is worse than not getting it.</li>
+            <li><strong>Honour the wait you were given.</strong> Rate limits are what hits first in practice, and the response tells you how long to back off (<a href="#s9-3">§9.3</a>). Guessing when you were told is a choice, not an oversight.</li>
+        </ul>
+        <p>Your own fan-out deserves naming separately, because it is the one people forget: a dropped publish to your message bus is not a provider failure at all, and losing it silently means no socket ever hears about a message that is sitting in your database, correct and invisible. Retry it or log it loudly — doing neither is how that bug survives for months.</p>
     </article>
     <article id="s10">
         <h2><span class="accent">##</span> 10. Glossary</h2>
@@ -553,7 +768,7 @@ spec:
             <dt><strong>PSID</strong> (Page-Scoped ID)</dt>
             <dd>the equivalent identifier in older Page-mediated Messenger flows. <em>Different from IGSID.</em> The Business Login flow described here does not use PSIDs.</dd>
             <dt><strong>App-Scoped User ID</strong></dt>
-            <dd>the OAuth-time <samp>user_id</samp> returned in the short-lived token response, namespaced to your app. In the Business Login flow this is the same value as the IG-User-ID.</dd>
+            <dd>the OAuth-time <samp>user_id</samp> returned in the short-lived token response, namespaced to your app. In the Business Login flow this is the same value as the IG-User-ID. "Namespaced to your app" is not decoration: change the Meta app and the same Instagram account comes back under a different id, indistinguishable from a different account. See <a href="#s4-7">§4.7</a>.</dd>
             <dt><strong>IG Business Account</strong></dt>
             <dd>an Instagram account in Business or Creator mode, eligible for the Business Login flow. Personal accounts are not eligible.</dd>
             <dt><strong>Page</strong></dt>
@@ -571,12 +786,12 @@ spec:
             <dt><strong>Message tag</strong></dt>
             <dd>a category (e.g. <samp>HUMAN_AGENT</samp>) you attach to an outbound send to permit it outside the 24-hour window.</dd>
             <dt><strong>Echo event</strong></dt>
-            <dd>an inbound webhook event with <samp>message.is_echo: true</samp>, representing your own outbound message being delivered. Suppress.</dd>
+            <dd>an inbound webhook event with <samp>message.is_echo: true</samp>, representing a message the <em>account</em> sent — either through your app or typed by the owner in the Instagram app. Its <samp>sender</samp> and <samp>recipient</samp> are mirrored relative to an inbound message. Store it; see <a href="#s6-9">§6.9</a>.</dd>
         </dl>
     </article>
     <article>
         <h2><span class="accent">##</span> A note on what this article is</h2>
-        <p>This is a behaviour spec, distilled from a working production implementation. Every endpoint, header, query parameter, and field name above is what flows on the wire today against Graph API v25.0. None of this should be taken as an Instagram API specification — Meta evolves these endpoints continuously. When something stops behaving as described, the source of truth is your traffic capture, not this document.</p>
+        <p>This is a behaviour spec: how to build the thing, not a description of any one codebase. The wire facts — every endpoint, header, query parameter, field name, error code and subcode — are what flows today against Graph API v26.0, taken from live traffic rather than from the docs, and called out where the two disagree. None of this should be taken as an Instagram API specification — Meta evolves these endpoints continuously. When something stops behaving as described, the source of truth is your traffic capture, not this document.</p>
     </article>
 </main>
 <footer>
