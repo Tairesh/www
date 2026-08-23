@@ -37,10 +37,10 @@
             <li>DMs from non-business accounts you do not control</li>
         </ul>
         <p>You will need a Meta Developer app of type <strong>Business</strong>, with the <strong>Instagram</strong> and <strong>Webhooks</strong> products enabled, valid privacy-policy and terms-of-service URLs, a registered redirect URI, and (for production) Meta app review approving the requested scopes: <samp>instagram_business_basic</samp>, <samp>instagram_business_manage_messages</samp>.</p>
-        <p class="notice"><strong>Two gates stand between you and a working integration, and neither announces itself.</strong></p>
+        <h3>Two gates to keep in mind before starting:</h3>
         <ul>
-            <li><strong>Before App Review, only accounts holding the <em>Instagram Tester</em> role can connect.</strong> Not any role on the Meta app — that specific one, invited under the app's roles and then accepted by the account in its own Instagram settings. An account without it cannot complete the login at all. So no pilot with a real customer and no demo to a prospect until review is through.</li>
-            <li><strong>The app must be published before webhooks are delivered.</strong> In development mode the login succeeds, the subscription succeeds, <samp>/me/subscribed_apps</samp> reads back exactly the fields you asked for — and not one event ever arrives. It looks precisely like a broken webhook URL, and it will send you debugging the one part of the system that is fine.</li>
+            <li><strong>Before App Review, only accounts holding the <em>Instagram Tester</em> role can connect.</strong> Not any role on the Meta app — that specific one, invited under the app's roles and then accepted by the account in its own Instagram settings (<em>Settings → Website permissions → Apps and websites → Tester invites</em>). An account without it cannot complete the login at all. That account should have "Business" or "Professional" status also.</li>
+            <li><strong>The app must be published before webhooks are delivered.</strong> "Publishing" and "App Review" is a two different things for Meta. Before publishing the login succeeds, the subscription succeeds, <samp>/me/subscribed_apps</samp> reads back exactly the fields you asked for — and not one event ever arrives. It looks precisely like a broken webhook URL, and it will send you debugging the one part of the system that is fine. Just publish your app before testing.</li>
         </ul>
         <p>Budget for both in the schedule rather than discovering them the week you planned to launch. App Review also wants the deauthorize and data-deletion callbacks of <a href="#s5-5">§5.5</a> live and answering, so those are not "later" work either.</p>
         <p>The six concerns we cover, in order:</p>
@@ -61,7 +61,7 @@
                 └──────────────────┘            ▲
                                                 │ refresh
                                        ┌────────┴────────┐
-                                       │ Token refresher │   (cron, daily)
+                                       │ Token refresher │   (periodically)
                                        └─────────────────┘
 
    IG servers ──▶ Webhook receiver ──▶ Inbound queue ──▶ Inbound consumer
@@ -88,8 +88,8 @@
             <tbody>
                 <tr><td><samp>IG_APP_ID</samp></td><td>Public ID of your Instagram app</td></tr>
                 <tr><td><samp>IG_APP_SECRET</samp></td><td>Secret of your Instagram app</td></tr>
-                <tr><td><samp>IG_REDIRECT_URI</samp></td><td>OAuth callback URL — must match exactly what you send</td></tr>
-                <tr><td><samp>IG_WEBHOOK_VERIFY_TOKEN</samp></td><td>A long random string <strong>you choose</strong> for the GET handshake</td></tr>
+                <tr><td><samp>IG_REDIRECT_URI</samp></td><td>OAuth callback URL — url of your app where you will receive the authorization code</td></tr>
+                <tr><td><samp>IG_WEBHOOK_VERIFY_TOKEN</samp></td><td>A long random string <strong>you choose</strong> for the webhook verification</td></tr>
             </tbody>
         </table>
         <p>The four dashboard values all live under <em>App dashboard → Use cases → Manage messaging &amp; content on Instagram</em>, but at different sub-steps:</p>
@@ -106,7 +106,7 @@
             <li><samp>https://api.instagram.com</samp> — where the authorization code is exchanged (<a href="#s4-4">§4.4</a>).</li>
             <li><samp>https://graph.instagram.com/v26.0</samp> — everything else: the long-lived exchange, <samp>/me</samp>, subscriptions, sends, refresh. The only one of the three that carries a version segment.</li>
         </ul>
-        <h3><span class="accent">###</span> The two-secrets-two-jobs rule</h3>
+        <h3><span class="accent">###</span> Verify token vs. app secret</h3>
         <p>The single most common bug when implementing Meta webhooks is conflating the verify token with the App Secret. They are different secrets and they are used in different requests.</p>
         <table>
             <thead>
@@ -648,7 +648,7 @@ Outbound consumer:
   "expires_in":   5183944 }</code></pre>
         <p>The new token is again ~60 days out. Replace the stored value and update <samp>access_token_expires_at = now + expires_in</samp>.</p>
         <h3 id="s8-3"><span class="accent">###</span> 8.3 Cron design</h3>
-        <p>Run the pass <strong>hourly</strong>, not daily. Find every channel where the token is approaching expiry, and refresh:</p>
+        <p>Run the pass hourly, or at least daily. Find every channel where the token is approaching expiry, and refresh:</p>
         <pre><code data-lang="python">REFRESH_THRESHOLD_DAYS = 3
 
 def refresh_due_tokens():
@@ -771,8 +771,6 @@ spec:
             <dd>the OAuth-time <samp>user_id</samp> returned in the short-lived token response, namespaced to your app. In the Business Login flow this is the same value as the IG-User-ID. "Namespaced to your app" is not decoration: change the Meta app and the same Instagram account comes back under a different id, indistinguishable from a different account. See <a href="#s4-7">§4.7</a>.</dd>
             <dt><strong>IG Business Account</strong></dt>
             <dd>an Instagram account in Business or Creator mode, eligible for the Business Login flow. Personal accounts are not eligible.</dd>
-            <dt><strong>Page</strong></dt>
-            <dd>a Facebook Page object. Older Instagram integrations were mediated through a Page; the Business Login flow we use here is <em>not</em>.</dd>
             <dt><strong>Business Login</strong></dt>
             <dd>the OAuth flow at <samp>instagram.com/oauth/authorize</samp> with <samp>instagram_business_*</samp> scopes. The flow this article describes.</dd>
             <dt><strong>Basic Display API</strong></dt>
