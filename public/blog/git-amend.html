@@ -21,7 +21,7 @@
 </header>
 <main>
     <article>
-        <h2><span class="accent">#</span> How to Quickly Edit Last Commit in <mark>Git</mark></h2>
+        <h1><span class="accent">#</span> How to Quickly Edit Last Commit in <mark>Git</mark></h1>
         <p>Sometimes I forget to add files before committing. Instead of creating a new commit, I prefer to amend the last one. My quick fix looks like this:</p>
         <pre><samp>git add . &amp;&amp; git commit -a --amend --reset-author --no-edit</samp></pre>
         <p>This command:</p>
@@ -34,19 +34,19 @@
         <p>It's a neat way to fix an incomplete commit without polluting history with unnecessary ones and deep diving into <samp>git rebase</samp>.</p>
     </article>
     <article>
-        <h2><span class="accent">#</span> Setting Up a Shortcut</h2>
+        <h2><span class="accent">##</span> Setting Up a Shortcut</h2>
         <p>If you use this often, create an alias to save time.</p>
-        <h4><span class="accent">##</span> Bash</h4>
+        <h3><span class="accent">###</span> Bash</h3>
         <pre><samp>echo "alias add-amend='git add . &amp;&amp; git commit -a --amend --reset-author --no-edit'" &gt;&gt; ~/.bashrc
 source ~/.bashrc</samp></pre>
 
-        <h4><span class="accent">##</span> Fish</h4>
+        <h3><span class="accent">###</span> Fish</h3>
         <pre><samp>alias add-amend="git add .; and git commit -a --amend --reset-author --no-edit"</samp></pre>
 
         <p>Now just run <samp>add-amend</samp> whenever you need to amend your last commit.</p>
     </article>
     <article id="rebase">
-        <h2><span class="accent">#</span> Bonus: Editing Old Commits with Git Rebase</h2>
+        <h2><span class="accent">##</span> Bonus: Editing Old Commits with Git Rebase</h2>
         <p>If the commit you want to change isn't the last one, use <samp>git rebase -i</samp> to go back and edit it:</p>
         <pre><samp>git rebase -i HEAD~3</samp></pre>
         <p>In the interactive list that appears, change <samp>pick</samp> to <samp>edit</samp> (or just <samp>e</samp>) next to the commit you want to fix. Git will pause the rebase at that commit. You can then do the changes and stage them with <samp>git add</samp>. Then continue with <code>git rebase --continue</code></p>

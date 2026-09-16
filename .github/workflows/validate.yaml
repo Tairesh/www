@@ -4,19 +4,35 @@ on:
   push:
     paths:
       - '**.html'
+      - '**.css'
+      - '**.js'
+      - 'eslint.config.mjs'
   pull_request:
     paths:
       - '**.html'
+      - '**.css'
+      - '**.js'
+      - 'eslint.config.mjs'
   workflow_dispatch:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout code"
+      - name: Checkout
         uses: actions/checkout@v7
 
-      - name: HTML5 Validator
-        uses: Cyb3r-Jak3/html5validator-action@master
+      - name: Set up Node
+        uses: actions/setup-node@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
         with:
-          root: .
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Just
+        uses: extractions/setup-just@v4
+
+      - name: Validate HTML, CSS and JS
+        run: just validate

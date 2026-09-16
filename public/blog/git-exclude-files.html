@@ -21,7 +21,7 @@
 </header>
 <main>
     <article>
-        <h2><span class="accent">#</span> Ignoring Local Changes in Git</h2>
+        <h1><span class="accent">#</span> Ignoring Local Changes in Git</h1>
         <p>Sometimes you want to change a file locally—like <samp>.vscode/settings.json</samp>, a <samp>.env</samp> file, or other config—but don’t want Git to track those changes. Here's how you can do that.</p>
     </article>
     <article>
@@ -43,7 +43,7 @@
         <p>To see which files are being hidden this way:</p>
         <pre><samp>git ls-files -v | grep '^h'</samp></pre>
 
-        <h4><span class="accent">###</span> Warning</h4>
+        <h3><span class="accent">###</span> Warning</h3>
             <p>If someone else updates the file in the repo, <samp>git pull</samp> may fail due to conflicts. In
                 that case:</p>
             <ol>

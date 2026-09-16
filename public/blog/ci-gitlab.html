@@ -20,15 +20,14 @@
     </nav>
 </header>
 <main>
-    <section>
-        <article>
-            <h2><span class="accent">#</span> GitLab CI Snippets</h2>
-            <p>Some <samp>.gitlab-ci.yml</samp> examples from my projects.</p>
-        </article>
-        <article>
-            <h2><span class="accent">##</span> Deploy via SSH</h2>
-            <p>This example will log in to <samp>$VPS_ADDRESS</samp> as <samp>$VPS_USERNAME</samp> via <samp>$SSH_PRIVATE_KEY</samp> and execute simple update command in <samp>$WORKING_DIR</samp>.</p>
-            <pre><code data-lang="yaml">image: centos:7
+    <article>
+        <h1><span class="accent">#</span> GitLab CI Snippets</h1>
+        <p>Some <samp>.gitlab-ci.yml</samp> examples from my projects.</p>
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Deploy via SSH</h2>
+        <p>This example will log in to <samp>$VPS_ADDRESS</samp> as <samp>$VPS_USERNAME</samp> via <samp>$SSH_PRIVATE_KEY</samp> and execute simple update command in <samp>$WORKING_DIR</samp>.</p>
+        <pre><code data-lang="yaml">image: centos:7
 
 stages:
     - deploy
@@ -47,11 +46,11 @@ production:
         - ssh -t $VPS_USERNAME@$VPS_ADDRESS "cd $WORKING_DIR && git pull && make composer-install && make migration"
     only:
         - main</code></pre>
-        </article>
-        <article>
-            <h2><span class="accent">##</span> Check, Then Deploy</h2>
-            <p>This script will run <samp>flake8</samp> check on latest <mark>Python</mark> image and deploy only if check step is succeed.</p>
-            <pre><code data-lang="yaml">image: python:latest
+    </article>
+    <article>
+        <h2><span class="accent">##</span> Check, Then Deploy</h2>
+        <p>This script will run <samp>flake8</samp> check on latest <mark>Python</mark> image and deploy only if check step is succeed.</p>
+        <pre><code data-lang="yaml">image: python:latest
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -82,8 +81,7 @@ deploy:
         - ssh -t $VPS_USERNAME@$VPS_ADDRESS "cd $WORKING_DIR && git checkout main && git pull && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart $SERVICE_NAME"
     only:
         - main</code></pre>
-        </article>
-    </section>
+    </article>
 </main>
 <footer>
     <p>&copy; 2011-2026 Ilia Agafonov</p>

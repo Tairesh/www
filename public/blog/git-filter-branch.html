@@ -21,10 +21,10 @@
 </header>
 <main>
     <article>
-        <h2><span class="accent">#</span> How to Fix Wrong Commit Emails with <samp>git filter-branch</samp></h2>
+        <h1><span class="accent">#</span> How to Fix Wrong Commit Emails with <samp>git filter-branch</samp></h1>
         <p>If you've made commits using the wrong email (e.g., personal email in a work repo), <samp>git filter-branch</samp> lets you rewrite history to fix them across your entire Git repository.</p>
         
-        <h4><span class="accent">##</span> TLDR; Fix All And Everywhere:</h4>
+        <h2><span class="accent">##</span> TLDR; Fix All And Everywhere:</h2>
         <pre><samp>git filter-branch --env-filter '
 OLD_EMAIL="your-old-email@example.com"
 CORRECT_NAME="Your Correct Name"
@@ -43,7 +43,7 @@ then
 fi
 ' --tag-name-filter cat -- --branches --tags</samp></pre>
 
-        <h4><span class="accent">##</span> What <samp>git filter-branch</samp> Does</h4>
+        <h2><span class="accent">##</span> What <samp>git filter-branch</samp> Does</h2>
         <p>This command rewrites Git history by creating a new set of commits that replace the old ones. You can use it to change commit metadata like author name and email, remove sensitive files, or modify commit messages.</p>
         <ul>
             <li><samp>--env-filter</samp>: Runs a shell script to set environment variables that change commit metadata.</li>
@@ -54,7 +54,7 @@ fi
             <li><samp>-- --branches --tags</samp>: Applies the rewriting to all branches and tags.</li>
         </ul>
 
-        <h4><span class="accent">##</span> Warning</h4>
+        <h2><span class="accent">##</span> Warning</h2>
         <p>This rewrites history. After running this, you'll need to force-push to shared repositories:</p>
         <pre><samp>git push --force --tags origin 'refs/heads/*'</samp></pre>
         <p>Only use on repos where you understand the consequences and can coordinate with collaborators.</p>

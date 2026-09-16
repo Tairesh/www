@@ -9,6 +9,7 @@
 		"The Sun is a deadly laser",
 		"I'm just a poor boy, I need no sympathy",
 		"My cock is much bigger than yours",
+		"Immerse your soul in love",
 		// Millenial culture references
 		"4815162342 lines of code!",
 		"The cake was NOT a lie",
@@ -56,11 +57,11 @@
 	];
 
 	// 4:20
-	if ((new Date()).getDay() == 3) {
+	if ((new Date()).getDay() === 3) {
 		mottos.push("It is wednesday my dudes");
 	}
 
-	// my own web-framework or something, idk didn't watched JQuery
+	// my own web-framework or something, idk I haven't watched JQuery
 	function $(id) {
 		return document.getElementById(id)
 	}
